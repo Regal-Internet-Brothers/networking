@@ -25,6 +25,13 @@ Interface NetworkListener
 	' The 'MessageSize' argument specifies how many bytes are in the data-segment of 'Message'.
 	Method OnReceiveMessage:Void(Network:NetworkEngine, Address:SocketAddress, Type:MessageType, Message:Packet, MessageSize:Int)
 	
+	' This is called when a client attempts to connect.
+	' The return-value of this command dictates if the client at 'Address' should be accepted.
+	Method OnClientConnect:Bool(Network:NetworkEngine, Address:SocketAddress)
+	
+	' This is called once, at any time after 'OnClientConnect'.
+	Method OnClientAccepted:Void(Network:NetworkEngine, C:Client)
+	
 	' The 'P' object represents the "real" 'Packet' that was sent. (Unlike 'OnReceiveMessage')
 	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:SocketAddress, BytesSent:Int)
 End
@@ -34,12 +41,29 @@ Class NetworkEngine Implements IOnBindComplete, IOnConnectComplete, IOnSendCompl
 	' Constant variable(s):
 	Const PORT_AUTOMATIC:= 0
 	
+	' Message types:
+	Const MSG_TYPE_ERROR:= -1
+	Const MSG_TYPE_INTERNAL:= 0
+	
+	' Internal message types:
+	Const INTERNAL_MSG_CONNECT:= 0
+	Const INTERNAL_MSG_WARNING:= 1
+	
 	' Defaults:
 	Const Default_PacketSize:= 4096
 	Const Default_PacketPoolSize:= 4
 	
 	' Booleans / Flags:
 	Const Default_FixByteOrder:Bool = True
+	
+	' Functions:
+	Function AddressesEqual:Bool(X:SocketAddress, Y:SocketAddress)
+		If (X = Y) Then
+			Return True
+		Endif
+		
+		Return (X.Port = Y.Port Or X.Host = Y.Host)
+	End
 	
 	' Constructor(s) (Public):
 	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder)
@@ -164,13 +188,13 @@ Class NetworkEngine Implements IOnBindComplete, IOnConnectComplete, IOnSendCompl
 		to other end-points is currently undefined.
 	#End
 	
-	Method Send:Void(P:Packet, Type:MessageType=0)
+	Method Send:Void(P:Packet, Type:MessageType)
 		RawSend(BuildOutputMessage(P, Type))
 		
 		Return
 	End
 	
-	Method Send:Void(P:Packet, C:Client, Type:MessageType=0)
+	Method Send:Void(P:Packet, C:Client, Type:MessageType)
 		RawSend(BuildOutputMessage(P, Type), C.Address)
 		
 		Return
@@ -199,7 +223,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnConnectComplete, IOnSendCompl
 	End
 	
 	Method RawSend:Void(RawPacket:Packet, Address:SocketAddress)
-		If (IsClient And (Address = Remote.Address)) Then
+		If (IsClient And AddressesEqual(Address, Remote.Address)) Then
 			RawSend(RawPacket)
 		Else ' If (Not IsClient) Then
 			' Obtain a transit-reference.
@@ -217,7 +241,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnConnectComplete, IOnSendCompl
 	Method BuildOutputMessage:Packet(P:Packet, Type:MessageType)
 		Local Output:= AllocateIntermediatePacket()
 		
-		WriteMessage(Output, P, Type)
+		WriteMessage(Output, Type, P)
 		
 		Return Output
 	End
@@ -232,6 +256,20 @@ Class NetworkEngine Implements IOnBindComplete, IOnConnectComplete, IOnSendCompl
 	
 	Method ReleasePacket:Bool(P:Packet)
 		Return PacketPool.Release(P)
+	End
+	
+	Method GetClient:Client(Address:SocketAddress)
+		For Local C:= Eachin Clients
+			If (AddressesEqual(Address, C.Address)) Then
+				Return C
+			Endif
+		Next
+		
+		Return Null
+	End
+	
+	Method Connected:Bool(Address:SocketAddress)
+		Return (GetClient(Address) <> Null)
 	End
 	
 	' Call-backs:
@@ -255,6 +293,10 @@ Class NetworkEngine Implements IOnBindComplete, IOnConnectComplete, IOnSendCompl
 	
 	Method OnConnectComplete:Void(Connected:Bool, Source:Socket)
 		OnBindComplete(Connected, Source)
+		
+		If (Connected) Then
+			SendConnectMessage()
+		Endif
 		
 		Return
 	End
@@ -444,11 +486,12 @@ Class NetworkEngine Implements IOnBindComplete, IOnConnectComplete, IOnSendCompl
 	End
 	
 	' I/O related:
-	Method WriteMessage:Void(Output:Packet, Input:Packet, Type:MessageType)
-		Output.WriteShort(Type)
-		Output.WriteInt(Input.Length)
-		
-		Input.TransferTo(Output)
+	Method ReadInternalMessageType:MessageType(S:Stream)
+		Return MessageType(S.ReadByte())
+	End
+	
+	Method WriteInternalMessageType:Void(S:Stream, InternalType:MessageType)
+		S.WriteByte(InternalType)
 		
 		Return
 	End
@@ -457,24 +500,104 @@ Class NetworkEngine Implements IOnBindComplete, IOnConnectComplete, IOnSendCompl
 		Local Type:= P.ReadShort()
 		Local DataSize:= P.ReadInt()
 		
-		If (HasCallback) Then
-			#Rem
-				Local UserData:= AllocatePacket()
+		Select Type
+			Case MSG_TYPE_INTERNAL
+				Local InternalType:= ReadInternalMessageType(P)
 				
-				' Ensure the size demanded by the inbound packet.
-				UserData.SmartResize(DataSize)
+				Select InternalType
+					Case INTERNAL_MSG_CONNECT
+						If (IsClient) Then
+							Return MSG_TYPE_ERROR
+						Endif
+						
+						Local C:= GetClient(Address)
+						
+						If (C = Null) Then
+							If (Not HasCallback Or Callback.OnClientConnect(Self, Address)) Then
+								Local C:= New Client(Address)
+								
+								Clients.AddLast(C)
+								
+								If (HasCallback) Then
+									Callback.OnClientAccepted(Self, C)
+								Endif
+							Endif
+						Else
+							SendWarningMessage(InternalType, C)
+						Endif
+					Case INTERNAL_MSG_WARNING
+						Local WarningType:= ReadInternalMessageType(P)
+				End Select
+			Default
+				If (Not IsClient And Not Connected(Address)) Then
+					Return MSG_TYPE_ERROR
+				Endif
 				
-				P.TransferTo(Output)
-			#End
-		
-			Local UserData:= P
-			
-			Callback.OnReceiveMessage(Self, Address, Type, UserData, DataSize)
-			
-			'ReleasePacket(UserData)
-		Endif
+				If (HasCallback) Then
+					#Rem
+						Local UserData:= AllocatePacket()
+						
+						' Ensure the size demanded by the inbound packet.
+						UserData.SmartResize(DataSize)
+						
+						P.TransferTo(Output)
+					#End
+				
+					Local UserData:= P
+					
+					Callback.OnReceiveMessage(Self, Address, Type, UserData, DataSize)
+					
+					'ReleasePacket(UserData)
+				Endif
+		End Select
 		
 		Return Type
+	End
+	
+	Method WriteMessage:Void(Output:Packet, Type:MessageType, Input:Packet=Null)
+		Output.WriteShort(Type)
+		
+		If (Input <> Null) Then
+			Output.WriteInt(Input.Length)
+			
+			Input.TransferTo(Output)
+		Else
+			Output.WriteInt(0)
+		Endif
+		
+		Return
+	End
+	
+	Method WriteInternalMessageHeader:Void(P:Packet, InternalType:MessageType)
+		WriteMessage(P, MSG_TYPE_INTERNAL)
+		WriteInternalMessageType(P, InternalType)
+		
+		Return
+	End
+	
+	Method SendConnectMessage:Void()
+		Local P:= AllocatePacket()
+		
+		WriteInternalMessageHeader(P, INTERNAL_MSG_CONNECT)
+		
+		Send(P, MSG_TYPE_INTERNAL)
+		
+		ReleasePacket(P)
+		
+		Return
+	End
+	
+	Method SendWarningMessage:Void(PostType:MessageType, C:Client)
+		Local P:= AllocatePacket()
+		
+		WriteInternalMessageHeader(P, INTERNAL_MSG_WARNING)
+		WriteInternalMessageType(P, PostType)
+		
+		Send(P, C, MSG_TYPE_INTERNAL)
+		
+		ReleasePacket(P)
+		
+		Return
 	End
 	
 	Public

@@ -39,7 +39,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 			If (Client.Open And Server.Open) Then
 				Print("Sending...")
 				
-				Client.Send(New Packet("This is a test.~n~r"), 1)
+				Client.Send(New Packet("Message from the client."), 1)
 			Else
 				Print("Unable to send to server - Server: " + BoolToString(Server.Open) + ", Client: " + BoolToString(Client.Open))
 			Endif
@@ -93,13 +93,37 @@ Class TestApplication Extends App Implements NetworkListener Final
 	End
 	
 	Method OnReceiveMessage:Void(Network:NetworkEngine, Address:SocketAddress, Type:MessageType, Message:Packet, MessageSize:Int)
-		Print(Message.ReadString())
+		Print(Message.ReadString(MessageSize))
+		
+		If (Network = Server) Then
+			Server.Send(New Packet("Message from the host."), 1)
+		Endif
 		
 		Return
 	End
 	
 	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:SocketAddress, BytesSent:Int)
-		Print("Sending complete.")
+		'Print("Sending operation complete.")
+		
+		Return
+	End
+	
+	Method OnClientConnect:Bool(Network:NetworkEngine, Address:SocketAddress)
+		Local Host:= Address.Host
+		
+		If (Host <> "127.0.0.1") Then
+			DebugStop()
+			
+			Return False
+		Endif
+		
+		' Return the default response.
+		Return True
+	End
+	
+	' This is called once, at any time after 'OnClientConnect'.
+	Method OnClientAccepted:Void(Network:NetworkEngine, C:Client)
+		Print("Client accepted: " + C.Address)
 		
 		Return
 	End
