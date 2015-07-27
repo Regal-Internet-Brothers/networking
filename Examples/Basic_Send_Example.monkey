@@ -2,11 +2,20 @@ Strict
 
 Public
 
+' Preprocessor related:
+#If TARGET = "stdcpp"
+	#USE_MOJOWRAPPER = True
+#End
+
 ' Imports:
 Import networking
 Import stringutil
 
-Import mojo
+#If Not USE_MOJOWRAPPER
+	Import mojo
+#Else
+	Import mojoemulator
+#End
 
 Import brl.asyncevent
 
@@ -17,7 +26,11 @@ Class TestApplication Extends App Implements NetworkListener Final
 	
 	' Constructor(s):
 	Method OnCreate:Int()
-		SetUpdateRate(60)
+		#If Not USE_MOJOWRAPPER
+			SetUpdateRate(60)
+		#Else
+			SetUpdateRate(4)
+		#End
 		
 		Server = New NetworkEngine()
 		
@@ -33,16 +46,20 @@ Class TestApplication Extends App Implements NetworkListener Final
 		UpdateAsyncEvents()
 		
 		Server.Update()
-		Client.Update()
 		
-		If (KeyHit(KEY_W) And Client <> Null) Then
-			If (Client.Open And Server.Open) Then
-				Print("Sending...")
-				
-				Client.Send(New Packet("Message from the client."), 1)
-			Else
-				Print("Unable to send to server - Server: " + BoolToString(Server.Open) + ", Client: " + BoolToString(Client.Open))
-			Endif
+		If (Client <> Null) Then
+			Client.Update()
+			
+			#If Not USE_MOJOWRAPPER
+				If (KeyHit(KEY_W)) Then
+					If (Client.Open And Server.Open) Then
+						Print("Sending...")
+			#End
+						Client.Send(New Packet("Message from the client."), 1)
+			#If Not USE_MOJOWRAPPER
+					Endif
+				Endif
+			#End
 		Endif
 		
 		' Return the default response.
@@ -103,7 +120,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 	End
 	
 	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:SocketAddress, BytesSent:Int)
-		Print("Sending operation complete.")
+		'Print("Sending operation complete.")
 		
 		Return
 	End
