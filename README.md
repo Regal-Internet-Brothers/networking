@@ -8,5 +8,5 @@ Currently, only UDP is supported, and *advanced* features like packet sorting an
 TODO:
 * Implement reliable packets.
 * Implement packet sorting / short-term storage.
-* Add proper TCP support. (Modify the packet format for TCP)
+* Adjust the packet format to better suit TCP.
 * Implement *advanced* binding and sending features for clients.
