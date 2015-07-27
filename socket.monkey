@@ -15,4 +15,6 @@ Import brl.socket
 Import brl.asyncevent
 
 ' Aliases:
-Alias NetAddr = SocketAddress
+
+' This will eventually replace 'SocketAddress' for the sake of abstraction.
+Alias NetworkAddress = SocketAddress

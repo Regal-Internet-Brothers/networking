@@ -23,7 +23,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 		
 		Server.SetCallback(Self)
 		
-		Server.Host(PORT)
+		Server.Host(PORT, True, NetworkEngine.SOCKET_TYPE_TCP)
 		
 		' Return the default response.
 		Return 0
@@ -83,7 +83,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 				
 				Client.SetCallback(Self)
 				
-				Client.Connect("127.0.0.1", PORT)
+				Client.Connect("127.0.0.1", PORT, True, NetworkEngine.SOCKET_TYPE_TCP)
 			Else
 				Print("Unknown network bound.")
 			Endif
@@ -92,7 +92,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 		Return
 	End
 	
-	Method OnReceiveMessage:Void(Network:NetworkEngine, Address:SocketAddress, Type:MessageType, Message:Packet, MessageSize:Int)
+	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Packet, MessageSize:Int)
 		Print(Message.ReadString(MessageSize))
 		
 		If (Network = Server) Then
@@ -103,7 +103,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 	End
 	
 	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:SocketAddress, BytesSent:Int)
-		'Print("Sending operation complete.")
+		Print("Sending operation complete.")
 		
 		Return
 	End
@@ -111,11 +111,13 @@ Class TestApplication Extends App Implements NetworkListener Final
 	Method OnClientConnect:Bool(Network:NetworkEngine, Address:SocketAddress)
 		Local Host:= Address.Host
 		
-		If (Host <> "127.0.0.1") Then
-			DebugStop()
-			
-			Return False
-		Endif
+		#Rem
+			If (Host <> "127.0.0.1") Then
+				DebugStop()
+				
+				Return False
+			Endif
+		#End
 		
 		' Return the default response.
 		Return True
