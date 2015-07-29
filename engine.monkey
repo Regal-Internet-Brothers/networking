@@ -48,7 +48,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	' Message types:
 	Const MSG_TYPE_ERROR:= -1
-	Const MSG_TYPE_INTERNAL:= 4
+	Const MSG_TYPE_INTERNAL:= 1
 	
 	' You may use this as a starting-point for message types.
 	Const MSG_TYPE_CUSTOM:= 1
