@@ -66,7 +66,7 @@ Class Packet Extends PublicDataStream Final
 	
 	' Properties:
 	Method Released:Bool() Property
-		Return (RefCount = 0)
+		Return (RefCount <= 0)
 	End
 	
 	' Fields (Protected):
@@ -128,6 +128,10 @@ Class PacketPool ' Final
 		
 		' Return the default response.
 		Return False
+	End
+	
+	Method Contains:Bool(P:Packet)
+		Return Elements.Contains(P)
 	End
 	
 	' Properties (Public):

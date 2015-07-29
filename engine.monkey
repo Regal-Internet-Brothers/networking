@@ -48,7 +48,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	' Message types:
 	Const MSG_TYPE_ERROR:= -1
-	Const MSG_TYPE_INTERNAL:= 0
+	Const MSG_TYPE_INTERNAL:= 4
 	
 	' You may use this as a starting-point for message types.
 	Const MSG_TYPE_CUSTOM:= 1
@@ -72,7 +72,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 			Return True
 		Endif
 		
-		Return (X.Port = Y.Port Or X.Host = Y.Host)
+		Return (X.Port = Y.Port And X.Host = Y.Host)
 	End
 	
 	' Constructor(s) (Public):
@@ -220,7 +220,15 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		
 		If (Not IsClient And TCPSocket) Then
 			RawSendToAll(RawPacket)
+			
+			#Rem
+				For Local C:= Eachin Clients
+					RawSend(C.Connection, BuildOutputMessage(P, Type))
+				Next
+			#End
 		Else
+			'Local RawPacket:= BuildOutputMessage(P, Type)
+			
 			RawSend(Connection, RawPacket)
 		Endif
 		
@@ -373,10 +381,6 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Method OnBindComplete:Void(Bound:Bool, Source:Socket)
 		If (HasCallback) Then
 			Callback.OnNetworkBind(Self, Bound)
-			
-			If (Bound) Then
-				Clients = New List<Client>()
-			Endif
 		Endif
 		
 		If (Bound) Then
@@ -434,8 +438,6 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 				Endif
 			Endif
 			
-			P.Reset()
-			
 			AutoLaunchReceive(Source, P)
 		Endif
 		
@@ -443,12 +445,6 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	Method OnReceiveComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Source:Socket)
-		#If CONFIG = "debug"
-			If (UDPSocket And Not IsClient) Then
-				Return
-			Endif
-		#End
-		
 		If (UDPSocket) Then
 			OnReceiveFromComplete(Data, Offset, Count, Remote.Address, Source)
 		Else
@@ -459,12 +455,6 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	Method OnSendToComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Address:SocketAddress, Source:Socket)
-		#Rem
-			If (Source <> Connection) Then
-				Return
-			Endif
-		#End
-		
 		Local P:= RetrieveWaitingPacketHandle(Data)
 		
 		If (P <> Null) Then
@@ -485,12 +475,6 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	Method OnSendComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Source:Socket)
 		If (UDPSocket) Then
-			#If CONFIG = "debug"
-				If (Not IsClient) Then
-					Return
-				Endif
-			#End
-			
 			OnSendToComplete(Data, Offset, Count, Remote.Address, Source)
 		Else
 			OnSendToComplete(Data, Offset, Count, Source.RemoteAddress, Source)
@@ -517,18 +501,24 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	' The 'P' object must be added internally by an external source:
 	Method LaunchAsyncReceive:Void(S:Socket, P:Packet)
+		P.Reset()
+		
 		S.ReceiveAsync(P.Data, P.Offset, P.DataLength, Self)
 		
 		Return
 	End
 	
 	Method LaunchAsyncReceiveFrom:Void(S:Socket, P:Packet)
+		P.Reset()
+		
 		LaunchAsyncReceiveFrom(S, P, New SocketAddress())
 		
 		Return
 	End
 	
 	Method LaunchAsyncReceiveFrom:Void(S:Socket, P:Packet, Address:SocketAddress)
+		P.Reset()
+		
 		S.ReceiveFromAsync(P.Data, P.Offset, P.DataLength, Address, Self)
 		
 		Return
@@ -594,7 +584,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		
 		Select Type
 			Case MSG_TYPE_INTERNAL
-				Local InternalType:= ReadInternalMessageType(P)
+				Local InternalType:= ReadInternalMessageHeader(P)
 				
 				Select InternalType
 					Case INTERNAL_MSG_CONNECT
@@ -634,6 +624,8 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 						Endif
 					Case INTERNAL_MSG_WARNING
 						Local WarningType:= ReadInternalMessageType(P)
+						
+						'Print("WARNING: Incorrect usage of internal message: " + WarningType)
 					Case INTERNAL_MSG_DISCONNECT
 						' Somewhat poorly done:
 						If (IsClient) Then
@@ -642,7 +634,6 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 				End Select
 			Default
 				Local C:Client
-				
 				
 				If (Not IsClient) Then
 					C = GetClient(Address)
@@ -661,7 +652,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 						' Ensure the size demanded by the inbound packet.
 						UserData.SmartResize(DataSize)
 						
-						P.TransferTo(Output)
+						P.TransferAmount(UserData, DataSize)
 					#End
 				
 					Local UserData:= P
@@ -691,8 +682,11 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
+	Method ReadInternalMessageHeader:MessageType(P:Packet)
+		Return ReadInternalMessageType(P)
+	End
+	
 	Method WriteInternalMessageHeader:Void(P:Packet, InternalType:MessageType)
-		'WriteMessage(P, MSG_TYPE_INTERNAL)
 		WriteInternalMessageType(P, InternalType)
 		
 		Return

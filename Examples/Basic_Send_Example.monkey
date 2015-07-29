@@ -24,6 +24,9 @@ Class TestApplication Extends App Implements NetworkListener Final
 	' Constant variable(s):
 	Const PORT:= 5029
 	
+	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
+	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
+	
 	' Constructor(s):
 	Method OnCreate:Int()
 		#If Not USE_MOJOWRAPPER
@@ -36,7 +39,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 		
 		Server.SetCallback(Self)
 		
-		Server.Host(PORT, True, NetworkEngine.SOCKET_TYPE_TCP)
+		Server.Host(PORT, True, PROTOCOL)
 		
 		' Return the default response.
 		Return 0
@@ -47,23 +50,42 @@ Class TestApplication Extends App Implements NetworkListener Final
 		
 		Server.Update()
 		
-		If (Client <> Null) Then
-			Client.Update()
+		For Local C:= Eachin Clients
+			C.Update()
 			
-			#If Not USE_MOJOWRAPPER
-				If (KeyHit(KEY_W)) Then
-					If (Client.Open And Server.Open) Then
-						Print("Sending...")
-			#End
-						Client.Send(New Packet("Message from the client."), 1)
-			#If Not USE_MOJOWRAPPER
+			If (C.Open And Server.Open) Then
+				#If Not USE_MOJOWRAPPER
+					If (KeyHit(KEY_W) Or KeyDown(KEY_E)) Then
+				#End
+						SendToServer(C)
+				#If Not USE_MOJOWRAPPER
 					Endif
-				Endif
-			#End
-		Endif
+					
+					If (KeyHit(KEY_R) Or KeyDown(KEY_T)) Then
+						SendToClients()
+					Endif
+				#End
+			Endif
+		Next
 		
 		' Return the default response.
 		Return 0
+	End
+	
+	Method SendToServer:Void(C:NetworkEngine)
+		ClientMsgCount += 1
+		
+		C.Send(New Packet("Message from the client: " + ClientMsgCount), 1)
+		
+		Return
+	End
+	
+	Method SendToClients:Void()
+		ServerMsgCount += 1
+		
+		Server.Send(New Packet("Message from the host: " + ServerMsgCount), 1)
+		
+		Return
 	End
 	
 	Method OnRender:Int()
@@ -75,7 +97,10 @@ Class TestApplication Extends App Implements NetworkListener Final
 	
 	Method OnClose:Int()
 		Server.Close()
-		Client.Close()
+		
+		For Local C:= Eachin Clients
+			C.Close()
+		Next
 		
 		Return Super.OnClose()
 	End
@@ -91,16 +116,20 @@ Class TestApplication Extends App Implements NetworkListener Final
 			
 			Return
 		Else
-			If (Network = Client) Then
+			If (Clients.Contains(Network)) Then
 				Print("Client socket bound.")
 			Elseif (Network = Server) Then
 				Print("Server socket bound.")
 				
-				Client = New NetworkEngine()
-				
-				Client.SetCallback(Self)
-				
-				Client.Connect("127.0.0.1", PORT, True, NetworkEngine.SOCKET_TYPE_TCP)
+				For Local I:= 1 To 1 ' 2 ' 4
+					Local Client:= New NetworkEngine()
+					
+					Client.SetCallback(Self)
+					
+					Client.Connect("127.0.0.1", PORT, True, PROTOCOL)
+					
+					Clients.AddLast(Client)
+				Next
 			Else
 				Print("Unknown network bound.")
 			Endif
@@ -112,9 +141,11 @@ Class TestApplication Extends App Implements NetworkListener Final
 	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Packet, MessageSize:Int)
 		Print(Message.ReadString(MessageSize))
 		
+		'#Rem
 		If (Network = Server) Then
-			Server.Send(New Packet("Message from the host."), 1)
+			SendToClients()
 		Endif
+		'#End
 		
 		Return
 	End
@@ -126,9 +157,10 @@ Class TestApplication Extends App Implements NetworkListener Final
 	End
 	
 	Method OnClientConnect:Bool(Network:NetworkEngine, Address:SocketAddress)
-		Local Host:= Address.Host
-		
 		#Rem
+			'Local Host:= Address.Host
+			
+			
 			If (Host <> "127.0.0.1") Then
 				DebugStop()
 				
@@ -149,7 +181,11 @@ Class TestApplication Extends App Implements NetworkListener Final
 	
 	' Fields:
 	Field Server:NetworkEngine
-	Field Client:NetworkEngine
+	
+	Field Clients:= New List<NetworkEngine>()
+	
+	Field ServerMsgCount:Int
+	Field ClientMsgCount:Int
 End
 
 ' Functions:
