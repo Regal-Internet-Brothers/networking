@@ -18,7 +18,7 @@ Alias NetworkPing = Int
 ' Classes:
 Class Client
 	' Constructor(s):
-	Method New(Address:SocketAddress, Connection:Socket=Null)
+	Method New(Address:NetworkAddress, Connection:Socket=Null)
 		Self.Address = Address
 		Self.Connection = Connection
 	End
@@ -45,7 +45,7 @@ Class Client
 	' Fields:
 	Field Ping:NetworkPing
 	
-	Field Address:SocketAddress
+	Field Address:NetworkAddress
 	
 	Field Connection:Socket
 End

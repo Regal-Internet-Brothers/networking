@@ -141,17 +141,17 @@ Class TestApplication Extends App Implements NetworkListener Final
 	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Packet, MessageSize:Int)
 		Print(Message.ReadString(MessageSize))
 		
-		'#Rem
+		#Rem
 		If (Network = Server) Then
 			SendToClients()
 		Endif
-		'#End
+		#End
 		
 		Return
 	End
 	
 	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:SocketAddress, BytesSent:Int)
-		'Print("Sending operation complete.")
+		Print("Sending operation complete.")
 		
 		Return
 	End

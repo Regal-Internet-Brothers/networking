@@ -28,13 +28,13 @@ Interface NetworkListener
 	
 	' This is called when a client attempts to connect.
 	' The return-value of this command dictates if the client at 'Address' should be accepted.
-	Method OnClientConnect:Bool(Network:NetworkEngine, Address:SocketAddress)
+	Method OnClientConnect:Bool(Network:NetworkEngine, Address:NetworkAddress)
 	
 	' This is called once, at any time after 'OnClientConnect'.
 	Method OnClientAccepted:Void(Network:NetworkEngine, C:Client)
 	
 	' The 'P' object represents the "real" 'Packet' that was sent. (Unlike 'OnReceiveMessage')
-	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:SocketAddress, BytesSent:Int)
+	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:NetworkAddress, BytesSent:Int)
 End
 
 ' Classes:
@@ -48,7 +48,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	' Message types:
 	Const MSG_TYPE_ERROR:= -1
-	Const MSG_TYPE_INTERNAL:= 1
+	Const MSG_TYPE_INTERNAL:= 0
 	
 	' You may use this as a starting-point for message types.
 	Const MSG_TYPE_CUSTOM:= 1
@@ -67,7 +67,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Const Default_MultiConnection:Bool = True
 	
 	' Functions:
-	Function AddressesEqual:Bool(X:SocketAddress, Y:SocketAddress)
+	Function AddressesEqual:Bool(X:NetworkAddress, Y:NetworkAddress)
 		If (X = Y) Then
 			Return True
 		Endif
@@ -78,13 +78,13 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	' Constructor(s) (Public):
 	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder)
 		PacketPool = New PacketPool(PacketSize, PacketPoolSize, FixByteOrder)
-		WaitingPackets = New Stack<Packet>()
+		SystemPackets = New Stack<Packet>()
 	End
 	
 	' Constructor(s) (Protected):
 	Protected
 	
-	Method GenerateHostSocket:Void(ProtocolString:String="stream")
+	Method GenerateNativeSocket:Void(ProtocolString:String="stream")
 		If (Open) Then
 			Close()
 		Endif
@@ -100,12 +100,12 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		
 		Select Protocol
 			Case SOCKET_TYPE_UDP
-				GenerateHostSocket("datagram")
+				GenerateNativeSocket("datagram")
 			Case SOCKET_TYPE_TCP
 				If (IsClient) Then
-					GenerateHostSocket("stream")
+					GenerateNativeSocket("stream")
 				Else
-					GenerateHostSocket("server")
+					GenerateNativeSocket("server")
 				Endif
 		End Select
 		
@@ -134,8 +134,6 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 			Clients.Clear()
 		Endif
 		
-		Remote = Null
-		
 		MultiConnection = Default_MultiConnection
 		
 		Return
@@ -163,12 +161,10 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return True
 	End
 	
-	Method Connect:Bool(Address:SocketAddress, Async:Bool=False, Protocol:SockType=SOCKET_TYPE_UDP)
+	Method Connect:Bool(Address:NetworkAddress, Async:Bool=False, Protocol:SockType=SOCKET_TYPE_UDP)
 		Init(Protocol, True)
 		
-		Remote = New Client(Address, Connection)
-		
-		Clients.AddFirst(Remote)
+		Clients.AddFirst(New Client(Address, Connection))
 		
 		#Rem
 			If (Not Bind(LocalPort, Async, LocalHostName)) Then
@@ -189,7 +185,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	Method Connect:Bool(Host:String, Port:Int, Async:Bool=False, Protocol:SockType=SOCKET_TYPE_UDP)
-		Return Connect(New SocketAddress(Host, Port), Async, Protocol)
+		Return Connect(New NetworkAddress(Host, Port), Async, Protocol)
 	End
 	
 	Method Update:Void(AsyncEvents:Bool=False)
@@ -284,7 +280,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	' This may only be called by UDP sockets.
-	Method RawSend:Void(Connection:Socket, RawPacket:Packet, Address:SocketAddress)
+	Method RawSend:Void(Connection:Socket, RawPacket:Packet, Address:NetworkAddress)
 		If (IsClient And (Address = Null Or AddressesEqual(Address, Remote.Address))) Then
 			RawSend(Connection, RawPacket)
 		Else ' If (Not IsClient) Then
@@ -297,12 +293,25 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
+	Method SendForceDisconnect:Void(C:Client)
+		Local P:= AllocatePacket()
+		
+		WriteInternalMessageHeader(P, INTERNAL_MSG_DISCONNECT)
+		
+		Send(P, C, MSG_TYPE_INTERNAL)
+		
+		ReleasePacket(P)
+		
+		Return
+	End
+	
 	' Used internally; use at your own risk.
 	' This command produces a packet in the appropriate format.
-	' This will generate an "intermediate" packet, which is handled by an internal system.
+	' This will generate a "system packet", which is handled internally.
 	' For details on the 'DefaultSize' argument, please see 'WriteMessage'.
+	' Internal messages do not serialize their data-segments' lengths.
 	Method BuildOutputMessage:Packet(P:Packet, Type:MessageType, DefaultSize:Int=0)
-		Local Output:= AllocateIntermediatePacket()
+		Local Output:= AllocateSystemPacket()
 		
 		WriteMessage(Output, Type, P, DefaultSize)
 		
@@ -321,7 +330,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return PacketPool.Release(P)
 	End
 	
-	Method GetClient:Client(Address:SocketAddress)
+	Method GetClient:Client(Address:NetworkAddress)
 		For Local C:= Eachin Clients
 			If (AddressesEqual(Address, C.Address)) Then
 				Return C
@@ -331,7 +340,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return Null
 	End
 	
-	Method Connected:Bool(Address:SocketAddress)
+	Method Connected:Bool(Address:NetworkAddress)
 		Return (GetClient(Address) <> Null)
 	End
 	
@@ -419,7 +428,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
-	Method OnReceiveFromComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Address:SocketAddress, Source:Socket)
+	Method OnReceiveFromComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Address:NetworkAddress, Source:Socket)
 		#Rem
 			If (Source <> Connection) Then
 				Return
@@ -432,7 +441,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 			If (HasCallback) Then
 				' Manually disable 'Socket' usage when using UDP:
 				If (UDPSocket) Then
-					ReadMessage(P, Address)
+					ReadMessage(P, Address, Source)
 				Else
 					ReadMessage(P, Address, Source)
 				Endif
@@ -454,7 +463,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
-	Method OnSendToComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Address:SocketAddress, Source:Socket)
+	Method OnSendToComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Address:NetworkAddress, Source:Socket)
 		Local P:= RetrieveWaitingPacketHandle(Data)
 		
 		If (P <> Null) Then
@@ -467,7 +476,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 			
 			' Now that we've removed our transit-reference,
 			' attempt to formally deallocate the packet in question.
-			DeallocateIntermediatePacket(P)
+			DeallocateSystemPacket(P)
 		Endif
 		
 		Return
@@ -494,7 +503,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	Method AutoLaunchReceive:Void(S:Socket)
-		AutoLaunchReceive(S, AllocateIntermediatePacket())
+		AutoLaunchReceive(S, AllocateSystemPacket())
 		
 		Return
 	End
@@ -511,12 +520,12 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Method LaunchAsyncReceiveFrom:Void(S:Socket, P:Packet)
 		P.Reset()
 		
-		LaunchAsyncReceiveFrom(S, P, New SocketAddress())
+		LaunchAsyncReceiveFrom(S, P, New NetworkAddress())
 		
 		Return
 	End
 	
-	Method LaunchAsyncReceiveFrom:Void(S:Socket, P:Packet, Address:SocketAddress)
+	Method LaunchAsyncReceiveFrom:Void(S:Socket, P:Packet, Address:NetworkAddress)
 		P.Reset()
 		
 		S.ReceiveFromAsync(P.Data, P.Offset, P.DataLength, Address, Self)
@@ -524,19 +533,19 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
-	Method AllocateIntermediatePacket:Packet()
+	Method AllocateSystemPacket:Packet()
 		Local P:= AllocatePacket()
 		
-		WaitingPackets.Push(P)
+		SystemPackets.Push(P)
 		
 		Return P
 	End
 	
 	' The return-value of this command specifies
 	' if 'P' is no longer in use, and has been removed.
-	Method DeallocateIntermediatePacket:Bool(P:Packet)
+	Method DeallocateSystemPacket:Bool(P:Packet)
 		If (ReleasePacket(P)) Then
-			WaitingPackets.RemoveEach(P)
+			SystemPackets.RemoveEach(P)
 			
 			Return True
 		Endif
@@ -546,7 +555,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	Method RetrieveWaitingPacketHandle:Packet(Data:DataBuffer)
-		For Local P:= Eachin WaitingPackets
+		For Local P:= Eachin SystemPackets
 			If (P.Data = Data) Then
 				Return P
 			Endif
@@ -560,7 +569,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Local P:= RetrieveWaitingPacketHandle(Data)
 		
 		If (P <> Null) Then
-			DeallocateIntermediatePacket(P)
+			DeallocateSystemPacket(P)
 		Endif
 		
 		Return
@@ -578,9 +587,8 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	' If we are using TCP as our underlying protocol, then 'Source' must be specified.
-	Method ReadMessage:MessageType(P:Packet, Address:SocketAddress, Source:Socket=Null)
+	Method ReadMessage:MessageType(P:Packet, Address:NetworkAddress, Source:Socket)
 		Local Type:= P.ReadShort()
-		Local DataSize:= P.ReadInt()
 		
 		Select Type
 			Case MSG_TYPE_INTERNAL
@@ -633,6 +641,8 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 						Endif
 				End Select
 			Default
+				Local DataSize:= P.ReadInt()
+				
 				Local C:Client
 				
 				If (Not IsClient) Then
@@ -668,15 +678,25 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	' If the 'Input' argument is 'Null', it will be passively ignored.
 	' The 'DefaultSize' argument is used if 'Input' is 'Null'.
+	' If we are writing an internal message, the data-segment length will not be serialized.
 	Method WriteMessage:Void(Output:Packet, Type:MessageType, Input:Packet=Null, DefaultSize:Int=0)
 		Output.WriteShort(Type)
 		
+		Select Type
+			Case MSG_TYPE_INTERNAL
+				' Nothing so far.
+			Default
+				If (Input <> Null) Then
+					Output.WriteInt(Input.Length)
+				Else
+					Output.WriteInt(DefaultSize)
+				Endif
+		End Select
+		
 		If (Input <> Null) Then
-			Output.WriteInt(Input.Length)
-			
 			Input.TransferTo(Output)
 		Else
-			Output.WriteInt(DefaultSize)
+			' Nothing so far.
 		Endif
 		
 		Return
@@ -718,7 +738,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	' This overload is UDP-only; use at your own risk.
-	Method SendForceDisconnect:Void(Address:SocketAddress)
+	Method SendForceDisconnect:Void(Address:NetworkAddress)
 		' Not exactly efficient, but it works:
 		Local DataSegment:= AllocatePacket()
 		
@@ -731,18 +751,6 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		
 		' Release our data-segment stream.
 		ReleasePacket(DataSegment)
-		
-		Return
-	End
-	
-	Method SendForceDisconnect:Void(C:Client)
-		Local P:= AllocatePacket()
-		
-		WriteInternalMessageHeader(P, INTERNAL_MSG_DISCONNECT)
-		
-		Send(P, C, MSG_TYPE_INTERNAL)
-		
-		ReleasePacket(P)
 		
 		Return
 	End
@@ -807,6 +815,14 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	' Properties (Protected):
 	Protected
 	
+	Method Remote:Client() Property
+		If (IsClient And Not Clients.IsEmpty()) Then
+			Return Clients.First()
+		Endif
+		
+		Return Null
+	End
+	
 	Method IsClient:Void(Input:Bool) Property
 		Self._IsClient = Input
 		
@@ -836,13 +852,11 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	' A pool of 'Packets'; used for async I/O.
 	Field PacketPool:PacketPool
 	
-	' A container of packets waiting in transit.
-	Field WaitingPackets:Stack<Packet>
+	' A container of packets allocated to the internal system.
+	Field SystemPackets:Stack<Packet>
 	
 	' This acts as the primary connection-socket.
 	Field Connection:Socket
-	
-	Field Remote:Client = Null
 	
 	' A collection of connected clients.
 	' For clients, the first entry should be the host.
