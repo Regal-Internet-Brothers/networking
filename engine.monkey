@@ -3,8 +3,13 @@ Strict
 Public
 
 ' Imports (Public):
+
+' Internal:
 Import client
 Import packet
+
+' External:
+Import eternity
 
 ' Imports (Private):
 Private
@@ -14,8 +19,10 @@ Import socket
 Public
 
 ' Aliases:
+Alias NetworkPing = Int ' UShort
 Alias MessageType = Int ' Short
 Alias SockType = Int
+Alias PacketID = Int ' UInt
 
 ' Interfaces:
 Interface NetworkListener
@@ -62,6 +69,8 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Const Default_PacketSize:= 4096
 	Const Default_PacketPoolSize:= 4
 	
+	Const Default_PacketReleaseTime:Duration = 1500 ' Milliseconds.
+	
 	' Booleans / Flags:
 	Const Default_FixByteOrder:Bool = True
 	Const Default_MultiConnection:Bool = True
@@ -76,9 +85,11 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	' Constructor(s) (Public):
-	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder)
+	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PacketReleaseTime:Duration=Default_PacketReleaseTime)
 		PacketPool = New PacketPool(PacketSize, PacketPoolSize, FixByteOrder)
 		SystemPackets = New Stack<Packet>()
+		
+		Self.PacketReleaseTime = PacketReleaseTime
 	End
 	
 	' Constructor(s) (Protected):
@@ -164,7 +175,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Method Connect:Bool(Address:NetworkAddress, Async:Bool=False, Protocol:SockType=SOCKET_TYPE_UDP)
 		Init(Protocol, True)
 		
-		Clients.AddFirst(New Client(Address, Connection))
+		Clients.AddFirst(New Client(Address, Connection, (Protocol = SOCKET_TYPE_UDP)))
 		
 		#Rem
 			If (Not Bind(LocalPort, Async, LocalHostName)) Then
@@ -197,6 +208,16 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 			Return
 		Endif
 		
+		UpdateClients()
+		
+		Return
+	End
+	
+	Method UpdateClients:Void()
+		For Local C:= Eachin Clients
+			C.Update(Self)
+		Next
+		
 		Return
 	End
 	
@@ -211,34 +232,34 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		to other end-points is currently undefined.
 	#End
 	
-	Method Send:Void(P:Packet, Type:MessageType)
+	Method Send:Void(P:Packet, Type:MessageType, Async:Bool=True)
 		Local RawPacket:= BuildOutputMessage(P, Type)
 		
 		If (Not IsClient And TCPSocket) Then
-			RawSendToAll(RawPacket)
+			RawSendToAll(RawPacket, Async)
 			
 			#Rem
 				For Local C:= Eachin Clients
-					RawSend(C.Connection, BuildOutputMessage(P, Type))
+					RawSend(C.Connection, BuildOutputMessage(P, Type), Async)
 				Next
 			#End
 		Else
 			'Local RawPacket:= BuildOutputMessage(P, Type)
 			
-			RawSend(Connection, RawPacket)
+			RawSend(Connection, RawPacket, Async)
 		Endif
 		
 		Return
 	End
 	
-	Method Send:Void(P:Packet, C:Client, Type:MessageType)
+	Method Send:Void(P:Packet, C:Client, Type:MessageType, Async:Bool=True)
 		Local MSG:= BuildOutputMessage(P, Type)
 		
 		Select SocketType
 			Case SOCKET_TYPE_UDP
-				RawSend(Connection, MSG, C.Address)
+				RawSend(Connection, MSG, C.Address, Async)
 			Case SOCKET_TYPE_TCP
-				RawSend(C.Connection, MSG)
+				RawSend(C.Connection, MSG, Async)
 		End Select
 		
 		Return
@@ -251,56 +272,78 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		then send it as you see fit. Use these commands with caution.
 	#End
 	
-	Method RawSend:Void(Connection:Socket, RawPacket:Packet)
+	Method RawSend:Void(Connection:Socket, RawPacket:Packet, Async:Bool=True)
 		If (IsClient Or TCPSocket) Then
 			' Obtain a transit-reference.
 			RawPacket.Obtain()
 			
-			Connection.SendAsync(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Self)
+			If (Async) Then
+				Connection.SendAsync(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Self)
+			Else
+				Connection.Send(RawPacket.Data, RawPacket.Offset, RawPacket.Length)
+				
+				OnSendComplete(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Connection)
+			Endif
 		Else
-			RawSendToAll(RawPacket)
+			RawSendToAll(RawPacket, Async)
 		Endif
 		
 		Return
 	End
 	
 	' This is only useful for hosts; clients will send normally.
-	Method RawSendToAll:Void(RawPacket:Packet)
+	Method RawSendToAll:Void(RawPacket:Packet, Async:Bool=True)
 		If (UDPSocket) Then
 			For Local C:= Eachin Clients
-				RawSend(Connection, RawPacket, C.Address)
+				RawSend(Connection, RawPacket, C.Address, Async)
 			Next
 		Else
 			For Local C:= Eachin Clients
-				RawSend(C.Connection, RawPacket)
+				RawSend(C.Connection, RawPacket, Async)
 			Next
 		Endif
 		
 		Return
 	End
 	
-	' This may only be called by UDP sockets.
-	Method RawSend:Void(Connection:Socket, RawPacket:Packet, Address:NetworkAddress)
+	' This may only be called for UDP sockets.
+	Method RawSend:Void(Connection:Socket, RawPacket:Packet, Address:NetworkAddress, Async:Bool=True)
 		If (IsClient And (Address = Null Or AddressesEqual(Address, Remote.Address))) Then
-			RawSend(Connection, RawPacket)
+			RawSend(Connection, RawPacket, Async)
 		Else ' If (Not IsClient) Then
 			' Obtain a transit-reference.
 			RawPacket.Obtain()
 			
-			Connection.SendToAsync(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address, Self)
+			If (Async) Then
+				Connection.SendToAsync(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address, Self)
+			Else
+				Connection.SendTo(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address)
+				
+				OnSendToComplete(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address, Connection)
+			Endif
 		Endif
 		
 		Return
 	End
 	
 	Method SendForceDisconnect:Void(C:Client)
+		' Local variable(s):
+		
+		' Allocate a temporary packet.
 		Local P:= AllocatePacket()
 		
+		' Write the data-segment (Internal message-data):
 		WriteInternalMessageHeader(P, INTERNAL_MSG_DISCONNECT)
 		
-		Send(P, C, MSG_TYPE_INTERNAL)
+		' Send to the 'Client' specified, blocking until
+		' the desired operation has been completed.
+		Send(P, C, MSG_TYPE_INTERNAL, False)
 		
+		' Release our temporary packet.
 		ReleasePacket(P)
+		
+		' Finally, manually release the 'Client' specified.
+		ReleaseClient(C)
 		
 		Return
 	End
@@ -340,12 +383,57 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return Null
 	End
 	
+	' Generally speaking, this should only be called when using TCP;
+	' for a general purpose routine, please use the overload accepting a 'NetworkAddress'.
+	Method GetClient:Client(S:Socket)
+		If (UDPSocket) Then
+			If (Not IsClient Or S <> Connection) Then
+				Return Null
+			Else
+				Return Remote
+			Endif
+		Endif
+		
+		For Local C:= Eachin Clients
+			If (C.Connection = S) Then
+				Return C
+			Endif
+		Next
+		
+		Return Null
+	End
+	
+	' Only useful for TCP; UDP always returns 'False'.
+	Method Connected:Bool(S:Socket)
+		Return (GetClient(S) <> Null)
+	End
+	
 	Method Connected:Bool(Address:NetworkAddress)
 		Return (GetClient(Address) <> Null)
 	End
 	
 	' Methods (Protected):
 	Protected
+	
+	' This may be used to manually release a client from this network.
+	Method ReleaseClient:Void(C:Client)
+		If (C = Null Or (IsClient And C = Remote)) Then
+			Return
+		Endif
+		
+		Clients.RemoveEach(C)
+		
+		C.Close()
+		
+		Return
+	End
+	
+	' This should only be called when using TCP.
+	Method ReleaseClient:Void(S:Socket)
+		ReleaseClient(GetClient(S))
+		
+		Return
+	End
 	
 	' This will bind the socket specified, using this network.
 	' If 'Async' is disabled, this will return whether the bind operation was successful.
@@ -457,6 +545,12 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		If (UDPSocket) Then
 			OnReceiveFromComplete(Data, Offset, Count, Remote.Address, Source)
 		Else
+			If (Count = 0) Then
+				ReleaseClient(Source)
+				
+				Return
+			Endif
+			
 			OnReceiveFromComplete(Data, Offset, Count, Source.RemoteAddress, Source)
 		Endif
 		
@@ -844,7 +938,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Public
 	
 	' Fields (Public):
-	' Nothing so far.
+	Field PacketReleaseTime:Duration
 	
 	' Fields (Protected):
 	Protected
