@@ -40,6 +40,15 @@ Interface NetworkListener
 	' This is called once, at any time after 'OnClientConnect'.
 	Method OnClientAccepted:Void(Network:NetworkEngine, C:Client)
 	
+	' This is called when a client disconnects.
+	' This will not be called for client-networks, only hosts.
+	Method OnClientDisconnected:Void(Network:NetworkEngine, C:Client)
+	
+	' This is called when 'Network' is disconnected.
+	' This exists primarily for clients that have disconnected.
+	' That being said, this is not exclusive to clients.
+	Method OnDisconnected:Void(Network:NetworkEngine)
+	
 	' The 'P' object represents the "real" 'Packet' that was sent. (Unlike 'OnReceiveMessage')
 	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:NetworkAddress, BytesSent:Int)
 End
@@ -131,18 +140,30 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	' Destructor(s):
 	Method Close:Void()
+		If (Not Open) Then ' Closed
+			Return
+		Endif
+		
 		If (Connection <> Null) Then
+			If (HasCallback) Then
+				Callback.OnDisconnected(Self)
+			Endif
+		
 			Connection.Close()
 			
 			Connection = Null
-		Endif
-		
-		If (Clients <> Null) Then
-			For Local C:= Eachin Clients
-				C.Close()
-			Next
 			
-			Clients.Clear()
+			If (Clients <> Null) Then
+				If (Not IsClient) Then
+					For Local C:= Eachin Clients
+						C.Close()
+					Next
+				Endif
+				
+				Clients.Clear()
+				
+				Clients = Null
+			Endif
 		Endif
 		
 		MultiConnection = Default_MultiConnection
@@ -295,11 +316,11 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Method RawSendToAll:Void(RawPacket:Packet, Async:Bool=True)
 		If (UDPSocket) Then
 			For Local C:= Eachin Clients
-				RawSend(Connection, RawPacket, C.Address, Async)
+				RawSend(Connection, RawPacket, C.Address, False) ' Async
 			Next
 		Else
 			For Local C:= Eachin Clients
-				RawSend(C.Connection, RawPacket, Async)
+				RawSend(C.Connection, RawPacket, False) ' Async
 			Next
 		Endif
 		
@@ -423,6 +444,10 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		
 		Clients.RemoveEach(C)
 		
+		If (HasCallback) Then
+			Callback.OnClientDisconnected(Self, C)
+		Endif
+		
 		C.Close()
 		
 		Return
@@ -506,6 +531,10 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	Method OnAcceptComplete:Void(Socket:Socket, Source:Socket)
+		If (Socket = Null) Then
+			Return
+		Endif
+		
 		AutoLaunchReceive(Socket)
 		
 		' Check if we can accept more connections:
@@ -543,10 +572,32 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	Method OnReceiveComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Source:Socket)
 		If (UDPSocket) Then
+			If (Count <= 0) Then
+				Local P:= RetrieveWaitingPacketHandle(Data)
+				
+				If (P <> Null) Then
+					AutoLaunchReceive(Source, P)
+				Endif
+				
+				Return
+			Endif
+			
+			If (Closed) Then
+				Return
+			Endif
+			
 			OnReceiveFromComplete(Data, Offset, Count, Remote.Address, Source)
 		Else
-			If (Count = 0) Then
-				ReleaseClient(Source)
+			If (Count < 0) Then ' (<= 0)
+				If (Closed) Then
+					Return
+				Endif
+				
+				If (IsClient) Then
+					Close()
+				Else
+					ReleaseClient(Source)
+				Endif
 				
 				Return
 			Endif

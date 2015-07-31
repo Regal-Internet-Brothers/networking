@@ -71,6 +71,8 @@ Class Client
 	End
 	
 	Method Close:Void(ReleaseInternalData:Bool=False)
+		Address = Null
+		
 		If (Connection <> Null) Then
 			If (Connection.IsOpen) Then
 				Connection.Close()

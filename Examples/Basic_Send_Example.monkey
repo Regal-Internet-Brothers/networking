@@ -24,8 +24,8 @@ Class TestApplication Extends App Implements NetworkListener Final
 	' Constant variable(s):
 	Const PORT:= 5029
 	
-	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
-	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
+	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
+	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
 	
 	' Constructor(s):
 	Method OnCreate:Int()
@@ -67,6 +67,20 @@ Class TestApplication Extends App Implements NetworkListener Final
 				#End
 			Endif
 		Next
+		
+		#If Not USE_MOJOWRAPPER
+			If (KeyHit(KEY_Q)) Then
+				'Server.Close()
+				
+				'#Rem
+					For Local C:= Eachin Clients
+						C.Close()
+					Next
+					
+					Clients.Clear()
+				'#End
+			Endif
+		#End
 		
 		' Return the default response.
 		Return 0
@@ -121,7 +135,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 			Elseif (Network = Server) Then
 				Print("Server socket bound.")
 				
-				For Local I:= 1 To 1 ' 2 ' 4
+				For Local I:= 1 To 16 ' 3 ' 2 ' 4
 					Local Client:= New NetworkEngine()
 					
 					Client.SetCallback(Self)
@@ -139,6 +153,8 @@ Class TestApplication Extends App Implements NetworkListener Final
 	End
 	
 	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Packet, MessageSize:Int)
+		'DebugStop()
+		
 		Print(Message.ReadString(MessageSize))
 		
 		#Rem
@@ -175,6 +191,18 @@ Class TestApplication Extends App Implements NetworkListener Final
 	' This is called once, at any time after 'OnClientConnect'.
 	Method OnClientAccepted:Void(Network:NetworkEngine, C:Client)
 		Print("Client accepted: " + C.Address)
+		
+		Return
+	End
+	
+	Method OnClientDisconnected:Void(Network:NetworkEngine, C:Client)
+		Print("Server: Client disconnected.")
+		
+		Return
+	End
+	
+	Method OnDisconnected:Void(Network:NetworkEngine)
+		Print("Disconnected.")
 		
 		Return
 	End
