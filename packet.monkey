@@ -2,16 +2,22 @@ Strict
 
 Public
 
+' Friends:
+Friend networking.engine
+Friend networking.packetpool
+
 ' Imports:
 Import engine
+Import client
 
 Import publicdatastream
+Import eternity
 
 Import brl.databuffer
 'Import brl.datastream
 
 ' Classes:
-Class Packet Extends PublicDataStream Final
+Class Packet Extends PublicDataStream
 	' Constant variable(s):
 	
 	' Defaults:
@@ -39,9 +45,11 @@ Class Packet Extends PublicDataStream Final
 	
 	' Destructor(s):
 	Method ForceClose:Void()
+		' Call ths super-class's 'Close' routine.
 		Super.Close()
 		
-		RefCount = 0
+		' Reset the reference-counter.
+		Self.RefCount = 0
 		
 		Return
 	End
@@ -71,10 +79,13 @@ Class Packet Extends PublicDataStream Final
 		Return Released
 	End
 	
-	' Properties:
+	' Properties (Public):
 	Method Released:Bool() Property
 		Return (RefCount <= 0)
 	End
+	
+	' Fields (Public):
+	' Nothing so far.
 	
 	' Fields (Protected):
 	Protected
@@ -84,92 +95,116 @@ Class Packet Extends PublicDataStream Final
 	Public
 End
 
-Class PacketPool ' Final
-	' Constructor(s) (Public):
-	Method New(PacketSize:Int, PoolSize:Int, FixByteOrder:Bool)
-		Self._PacketSize = PacketSize
-		Self.FixByteOrder = FixByteOrder
-		
-		BuildPool(PoolSize)
+Class ReliablePacket Extends Packet Final
+	' Constant variable(s):
+	Const PACKET_ID_NONE:PacketID = 0
+	
+	' Constructor(s):
+	Method New(Size:Int, FixByteOrder:Bool=Default_BigEndianStorage, Resizable:Bool=True, SizeLimit:Int=NOLIMIT)
+		' Call the super-class's implementation.
+		Super.New(Size, FixByteOrder, Resizable, SizeLimit)
 	End
 	
-	' Constructor(s) (Protected):
-	Protected
+	Method New(Message:String, Encoding:String="utf8", FixByteOrder:Bool=Default_BigEndianStorage, Resizable:Bool=True, SizeLimit:Int=NOLIMIT)
+		' Call the super-class's implementation.
+		Super.New(Message, Encoding, FixByteOrder, Resizable, SizeLimit)
+	End
 	
-	Method BuildPool:Void(PoolSize:Int)
-		Self.Elements = New Stack<Packet>()
+	' Destructor(s):
+	Method ForceClose:Void()
+		' Call the super-class's implementation.
+		Super.ForceClose()
 		
-		For Local I:= 1 To PoolSize
-			Self.Elements.Push(New Packet(PacketSize, FixByteOrder, True))
-		Next
+		' Set the internal identifier back to default.
+		Self._ID = PACKET_ID_NONE
 		
 		Return
 	End
 	
-	Public
-	
 	' Methods:
-	Method Allocate:Packet()
-		Local P:Packet
+	Method Resend:Void(Network:NetworkEngine)
+		ResetResendTimer()
 		
-		If (Elements.IsEmpty) Then
-			P = New Packet(PacketSize)
-		Else
-			P = Elements.Pop()
-		Endif
+		Network.Send(Self)
 		
-		P.Obtain()
-		
-		Return P
+		Return
 	End
 	
-	' The return-value of this command specifies if 'P' was accepted.
-	Method Release:Bool(P:Packet)
-		If (P.Release()) Then
-			P.Reset()
-			
-			Elements.Push(P)
-			
-			Return True
+	Method Update:Void(Network:NetworkEngine)
+		If (Eternity.TimeDifference(ResendTimer) >= Network.PacketResendTime) Then
+			Resend(Network)
 		Endif
 		
-		' Return the default response.
-		Return False
-	End
-	
-	Method Contains:Bool(P:Packet)
-		Return Elements.Contains(P)
+		Return
 	End
 	
 	' Properties (Public):
-	Method FixByteOrder:Bool() Property
-		Return Self._FixByteOrder
-	End
-	
-	Method PacketSize:Int() Property
-		Return Self._PacketSize
+	Method Destination:Client() Property
+		Return Self._Destination
 	End
 	
 	' Properties (Protected):
 	Protected
 	
-	Method FixByteOrder:Void(Input:Bool) Property
-		Self._FixByteOrder = Input
+	Method Destination:Void(Input:Client) Property
+		Self._Destination = Input
 		
 		Return
 	End
 	
 	Public
 	
-	' Fields (Protected):
-	Protected
+	' Methods (Private):
+	Private
 	
-	Field _PacketSize:Int
+	Method ResetResendTimer:Void()
+		ResendTimer = Eternity.GetTime()
+		
+		Return
+	End
 	
-	Field Elements:Stack<Packet>
+	Public
 	
-	' Booleans / Flags:
-	Field _FixByteOrder:Bool
+	' Properties (Public):
+	Method ID:PacketID() Property
+		Return Self._ID
+	End
+	
+	' Properties (Private):
+	Private
+	
+	Method ID:Void(Input:PacketID) Property
+		#Rem
+			If (Input = PACKET_ID_NONE) Then
+				If (ID <> PACKET_ID_NONE) Then ' Input
+					Release()
+				Endif
+			Else
+				Self._ID = Input
+				
+				Obtain()
+			Endif
+		#End
+		
+		Self._ID = Input
+		
+		Return
+	End
+	
+	Public
+	
+	' Fields (Public):
+	'Field 
+	
+	' Fields (Private):
+	Private
+	
+	Field _Destination:Client
+	
+	Field _ID:PacketID = PACKET_ID_NONE
+	
+	Field ResendTimer:TimePoint
+	'Field LifeTimer:TimePoint
 	
 	Public
 End

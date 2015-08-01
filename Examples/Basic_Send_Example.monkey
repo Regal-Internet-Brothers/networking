@@ -24,8 +24,8 @@ Class TestApplication Extends App Implements NetworkListener Final
 	' Constant variable(s):
 	Const PORT:= 5029
 	
-	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
-	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
+	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
+	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
 	
 	' Constructor(s):
 	Method OnCreate:Int()
@@ -80,6 +80,10 @@ Class TestApplication Extends App Implements NetworkListener Final
 					Clients.Clear()
 				'#End
 			Endif
+			
+			If (KeyHit(KEY_F)) Then
+				DebugStop()
+			Endif
 		#End
 		
 		' Return the default response.
@@ -89,7 +93,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 	Method SendToServer:Void(C:NetworkEngine)
 		ClientMsgCount += 1
 		
-		C.Send(New Packet("Message from the client: " + ClientMsgCount), 1, False)
+		C.Send(New Packet("Message from the client: " + ClientMsgCount), 1, True, False)
 		
 		Return
 	End
@@ -97,7 +101,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 	Method SendToClients:Void()
 		ServerMsgCount += 1
 		
-		Server.Send(New Packet("Message from the host: " + ServerMsgCount), 1, False)
+		Server.Send(New Packet("Message from the host: " + ServerMsgCount), 1, True, False)
 		
 		Return
 	End
@@ -137,7 +141,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 			Elseif (Network = Server) Then
 				Print("Server socket bound.")
 				
-				For Local I:= 1 To 4 ' 2 ' 16 ' 3 ' 2 ' 4
+				For Local I:= 1 To 1 ' 4 ' 8
 					Local Client:= New NetworkEngine()
 					
 					Client.SetCallback(Self)
@@ -167,7 +171,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 	End
 	
 	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:SocketAddress, BytesSent:Int)
-		Print("Sending operation complete.")
+		'Print("Sending operation complete.")
 		
 		Return
 	End

@@ -111,7 +111,7 @@ Class Client
 	' if it hasn't already been identified.
 	' The return-value indicates if the operation failed.
 	Method ConfirmPacket:Bool(ID:PacketID)
-		If (ContainsPacket(ID)) Then
+		If (Not ContainsPacket(ID)) Then
 			ConfirmedPackets.PushLast(ID)
 			
 			Return True
@@ -156,6 +156,20 @@ Class Client
 		PacketReleaseTimer = Eternity.GetTime()
 		
 		Return PacketReleaseTimer
+	End
+	
+	Method ResetPingTimer:Void()
+		PingTimer = Eternity.GetTime()
+		
+		Return
+	End
+	
+	Method CalculatePing:Void()
+		Ping = NetworkPing(Eternity.TimeDifference(PingTimer))
+		
+		'ResetPingTimer()
+		
+		Return
 	End
 	
 	Public
@@ -224,6 +238,7 @@ Class Client
 	Field ConfirmedPackets:Deque<PacketID> ' IntDeque
 	
 	Field PacketReleaseTimer:TimePoint
+	Field PingTimer:TimePoint
 	
 	' Booleans / Flags:
 	Field _Closed:Bool = True

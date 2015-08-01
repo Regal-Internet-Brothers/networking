@@ -14,7 +14,12 @@ Import eternity
 ' Imports (Private):
 Private
 
+' Internal:
 Import socket
+Import packetpool
+
+' External:
+' Nothing so far.
 
 Public
 
@@ -73,12 +78,19 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Const INTERNAL_MSG_CONNECT:= 0
 	Const INTERNAL_MSG_WARNING:= 1
 	Const INTERNAL_MSG_DISCONNECT:= 2
+	Const INTERNAL_MSG_PACKET_CONFIRM:= 3
+	Const INTERNAL_MSG_PING:= 4
+	Const INTERNAL_MSG_PONG:= 5
+	
+	' Packet management related:
+	Const INITIAL_PACKET_ID:PacketID = 1
 	
 	' Defaults:
 	Const Default_PacketSize:= 4096
 	Const Default_PacketPoolSize:= 4
 	
 	Const Default_PacketReleaseTime:Duration = 1500 ' Milliseconds.
+	Const Default_PacketResendTime:Duration = 40 ' Milliseconds.
 	
 	' Booleans / Flags:
 	Const Default_FixByteOrder:Bool = True
@@ -93,12 +105,28 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return (X.Port = Y.Port And X.Host = Y.Host)
 	End
 	
+	Function WriteBool:Void(S:Stream, Value:Bool)
+		If (Value) Then
+			S.WriteByte(1)
+		Else
+			S.WriteByte(0)
+		Endif
+		
+		Return
+	End
+	
+	Function ReadBool:Bool(S:Stream)
+		Return (S.ReadByte() <> 0)
+	End
+	
 	' Constructor(s) (Public):
-	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PacketReleaseTime:Duration=Default_PacketReleaseTime)
-		PacketPool = New PacketPool(PacketSize, PacketPoolSize, FixByteOrder)
-		SystemPackets = New Stack<Packet>()
+	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime)
+		Self.PacketGenerator = New BasicPacketPool(PacketSize, PacketPoolSize, FixByteOrder)
+		
+		Self.SystemPackets = New Stack<Packet>()
 		
 		Self.PacketReleaseTime = PacketReleaseTime
+		Self.PacketResendTime = PacketResendTime
 	End
 	
 	' Constructor(s) (Protected):
@@ -121,6 +149,10 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Select Protocol
 			Case SOCKET_TYPE_UDP
 				GenerateNativeSocket("datagram")
+				
+				Self.NextReliablePacketID = INITIAL_PACKET_ID
+				
+				InitReliablePackets()
 			Case SOCKET_TYPE_TCP
 				If (IsClient) Then
 					GenerateNativeSocket("stream")
@@ -136,9 +168,21 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
+	Method InitReliablePackets:Void()
+		If (ReliablePackets = Null) Then
+			ReliablePackets = New Stack<ReliablePacket>()
+		Endif
+		
+		If (ReliablePacketGenerator = Null) Then
+			ReliablePacketGenerator = New ReliablePacketPool(PacketSize, PacketGenerator.InitialPoolSize, BigEndian)
+		Endif
+		
+		Return
+	End
+	
 	Public
 	
-	' Destructor(s):
+	' Destructor(s) (Public):
 	Method Close:Void()
 		If (Not Open) Then ' Closed
 			Return
@@ -164,12 +208,29 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 				
 				Clients = Null
 			Endif
+			
+			SystemPackets.Clear()
+			
+			DeinitReliablePackets()
 		Endif
 		
 		MultiConnection = Default_MultiConnection
 		
 		Return
 	End
+	
+	' Destructor(s) (Protected):
+	Protected
+	
+	Method DeinitReliablePackets:Void()
+		If (ReliablePackets <> Null) Then
+			ReliablePackets.Clear()
+		Endif
+		
+		Return
+	End
+	
+	Public
 	
 	' Methods:
 	Method SetCallback:Void(Callback:NetworkListener)
@@ -231,13 +292,23 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		
 		UpdateClients()
 		
+		If (UDPSocket) Then ' (ReliablePackets <> Null)
+			For Local P:= Eachin ReliablePackets
+				P.Update(Self)
+			Next
+		Endif
+		
 		Return
 	End
 	
 	Method UpdateClients:Void()
-		For Local C:= Eachin Clients
-			C.Update(Self)
-		Next
+		If (Not IsClient) Then
+			For Local C:= Eachin Clients
+				C.Update(Self)
+			Next
+		Else
+			Remote.Update(Self)
+		Endif
 		
 		Return
 	End
@@ -253,9 +324,37 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		to other end-points is currently undefined.
 	#End
 	
-	Method Send:Void(P:Packet, Type:MessageType, Async:Bool=True)
-		Local RawPacket:= BuildOutputMessage(P, Type)
+	' This overload is used to re-send a reliable packet.
+	Method Send:Void(RP:ReliablePacket, Async:Bool=True)
+		AutoSendRaw(RP, RP.Destination, Async)
 		
+		Return
+	End
+	
+	Method Send:Void(P:Packet, Type:MessageType, Reliable:Bool=False, Async:Bool=True)
+		If (UDPSocket And Reliable) Then
+			For Local C:= Eachin Clients
+				Send(P, C, Type, True, Async) ' Reliable
+			Next
+		Else
+			AutoSendRaw(BuildOutputMessage(P, Type), Async)
+		Endif
+		
+		Return
+	End
+	
+	Method Send:Void(P:Packet, C:Client, Type:MessageType, Reliable:Bool=False, Async:Bool=True)
+		If (UDPSocket And Reliable) Then
+			Send(BuildReliableMessage(P, Type, C), Async)
+		Else
+			AutoSendRaw(BuildOutputMessage(P, Type), C, Async)
+		Endif
+		
+		Return
+	End
+	
+	' These may be used to manually send a raw packet:
+	Method AutoSendRaw:Void(RawPacket:Packet, Async:Bool=True)
 		If (Not IsClient And TCPSocket) Then
 			RawSendToAll(RawPacket, Async)
 			
@@ -273,76 +372,13 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
-	Method Send:Void(P:Packet, C:Client, Type:MessageType, Async:Bool=True)
-		Local MSG:= BuildOutputMessage(P, Type)
-		
+	Method AutoSendRaw:Void(RawPacket:Packet, C:Client, Async:Bool=True)
 		Select SocketType
 			Case SOCKET_TYPE_UDP
-				RawSend(Connection, MSG, C.Address, Async)
+				RawSend(Connection, RawPacket, C.Address, Async)
 			Case SOCKET_TYPE_TCP
-				RawSend(C.Connection, MSG, Async)
+				RawSend(C.Connection, RawPacket, Async)
 		End Select
-		
-		Return
-	End
-	
-	#Rem
-		These commands may be used to send raw data.
-		
-		This can be useful, as you can generate an output packet yourself,
-		then send it as you see fit. Use these commands with caution.
-	#End
-	
-	Method RawSend:Void(Connection:Socket, RawPacket:Packet, Async:Bool=True)
-		If (IsClient Or TCPSocket) Then
-			' Obtain a transit-reference.
-			RawPacket.Obtain()
-			
-			If (Async) Then
-				Connection.SendAsync(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Self)
-			Else
-				Connection.Send(RawPacket.Data, RawPacket.Offset, RawPacket.Length)
-				
-				OnSendComplete(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Connection)
-			Endif
-		Else
-			RawSendToAll(RawPacket, Async)
-		Endif
-		
-		Return
-	End
-	
-	' This is only useful for hosts; clients will send normally.
-	Method RawSendToAll:Void(RawPacket:Packet, Async:Bool=True)
-		If (UDPSocket) Then
-			For Local C:= Eachin Clients
-				RawSend(Connection, RawPacket, C.Address, False) ' Async
-			Next
-		Else
-			For Local C:= Eachin Clients
-				RawSend(C.Connection, RawPacket, False) ' Async
-			Next
-		Endif
-		
-		Return
-	End
-	
-	' This may only be called for UDP sockets.
-	Method RawSend:Void(Connection:Socket, RawPacket:Packet, Address:NetworkAddress, Async:Bool=True)
-		If (IsClient And (Address = Null Or AddressesEqual(Address, Remote.Address))) Then
-			RawSend(Connection, RawPacket, Async)
-		Else ' If (Not IsClient) Then
-			' Obtain a transit-reference.
-			RawPacket.Obtain()
-			
-			If (Async) Then
-				Connection.SendToAsync(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address, Self)
-			Else
-				Connection.SendTo(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address)
-				
-				OnSendToComplete(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address, Connection)
-			Endif
-		Endif
 		
 		Return
 	End
@@ -358,7 +394,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		
 		' Send to the 'Client' specified, blocking until
 		' the desired operation has been completed.
-		Send(P, C, MSG_TYPE_INTERNAL, False)
+		Send(P, C, MSG_TYPE_INTERNAL, False, False)
 		
 		' Release our temporary packet.
 		ReleasePacket(P)
@@ -377,9 +413,36 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Method BuildOutputMessage:Packet(P:Packet, Type:MessageType, DefaultSize:Int=0)
 		Local Output:= AllocateSystemPacket()
 		
+		If (UDPSocket) Then
+			WriteBool(Output, False)
+		Endif
+		
 		WriteMessage(Output, Type, P, DefaultSize)
 		
 		Return Output
+	End
+	
+	' This will take the contents of 'Data', transfer it
+	' to 'RP', as well as write any needed formatting.
+	' This allows you to use 'RP' as a normal system-managed packet.
+	Method BuildReliableMessage:Void(Data:Packet, Type:MessageType, RP:ReliablePacket)
+		If (UDPSocket) Then
+			WriteBool(RP, True)
+			WritePacketID(RP, RP.ID)
+		Endif
+		
+		WriteMessage(RP, Type, Data)
+		
+		Return
+	End
+	
+	' This will generate a 'ReliablePacket' automatically.
+	Method BuildReliableMessage:ReliablePacket(Data:Packet, Type:MessageType, C:Client)
+		Local RP:= AllocateReliablePacket(C)
+		
+		BuildReliableMessage(Data, Type, RP)
+		
+		Return RP
 	End
 	
 	Method IsCallback:Bool(L:NetworkListener)
@@ -387,11 +450,11 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	Method AllocatePacket:Packet()
-		Return PacketPool.Allocate()
+		Return PacketGenerator.Allocate()
 	End
 	
 	Method ReleasePacket:Bool(P:Packet)
-		Return PacketPool.Release(P)
+		Return PacketGenerator.Release(P)
 	End
 	
 	Method GetClient:Client(Address:NetworkAddress)
@@ -444,6 +507,12 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		
 		Clients.RemoveEach(C)
 		
+		For Local RP:= Eachin ReliablePackets
+			If (RP.Destination = C) Then
+				DeallocateReliablePacket(RP)
+			Endif
+		Next
+		
 		If (HasCallback) Then
 			Callback.OnClientDisconnected(Self, C)
 		Endif
@@ -458,6 +527,24 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		ReleaseClient(GetClient(S))
 		
 		Return
+	End
+	
+	' This may be used to retrieve the next reliable-packet identifier.
+	' This will increment an internal ID-counter; use with caution.
+	Method GetNextReliablePacketID:PacketID()
+		Local ID:= NextReliablePacketID
+		
+		NextReliablePacketID += 1
+		
+		Return ID
+	End
+	
+	' This is uses internally to automate the process of confirming a reliable packet.
+	' This routine is only valid when using UDP as the underlying protocol.
+	Method ConfirmReliablePacket:Bool(C:Client, ID:PacketID)
+		SendPacketConfirmation(C, ID)
+		
+		Return C.ConfirmPacket(ID)
 	End
 	
 	' This will bind the socket specified, using this network.
@@ -572,7 +659,8 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	Method OnReceiveComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Source:Socket)
 		If (UDPSocket) Then
-			If (Count < 0) Then ' (<= 0)
+			' In the event this operation could not be completed, relaunch:
+			If (Count <= 0) Then
 				Local P:= RetrieveWaitingPacketHandle(Data)
 				
 				If (P <> Null) Then
@@ -594,8 +682,15 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 				Endif
 				
 				If (IsClient) Then
+					' This will automatically clear any existing system-packets.
 					Close()
 				Else
+					Local P:= RetrieveWaitingPacketHandle(Data)
+					
+					If (P <> Null) Then
+						DeallocateSystemPacket(P)
+					Endif
+					
 					ReleaseClient(Source)
 				Endif
 				
@@ -678,10 +773,25 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
+	' This will manually add a 'Packet' to the internal system-packet container.
+	Method AddSystemPacket:Void(P:Packet)
+		SystemPackets.Push(P)
+		
+		Return
+	End
+	
+	' This will manually remove a 'Packet' from the internal system-packet container.
+	' To release a system-packet properly, please use 'DeallocateSystemPacket'. (Specialization aside)
+	Method RemoveSystemPacket:Void(P:Packet)
+		SystemPackets.RemoveEach(P)
+		
+		Return
+	End
+	
 	Method AllocateSystemPacket:Packet()
 		Local P:= AllocatePacket()
 		
-		SystemPackets.Push(P)
+		AddSystemPacket(P)
 		
 		Return P
 	End
@@ -690,10 +800,58 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	' if 'P' is no longer in use, and has been removed.
 	Method DeallocateSystemPacket:Bool(P:Packet)
 		If (ReleasePacket(P)) Then
-			SystemPackets.RemoveEach(P)
+			RemoveSystemPacket(P)
 			
 			Return True
 		Endif
+		
+		' Return the default response.
+		Return False
+	End
+	
+	' These two commands automatically handle the 'ReliablePackets' container:
+	Method AllocateReliablePacket:ReliablePacket(Destination:Client, ID:PacketID)
+		Local RP:= ReliablePacketGenerator.Allocate()
+		
+		RP.ID = ID
+		RP.Destination = Destination
+		
+		RP.ResetResendTimer()
+		
+		ReliablePackets.Push(RP)
+		
+		AddSystemPacket(RP)
+		
+		' Increment the reference-count, so we don't lose
+		' this packet once it has been sent once.
+		RP.Obtain()
+		
+		Return RP
+	End
+	
+	Method AllocateReliablePacket:ReliablePacket(Destination:Client)
+		Return AllocateReliablePacket(Destination, GetNextReliablePacketID())
+	End
+	
+	Method DeallocateReliablePacket:Bool(RP:ReliablePacket)
+		If (ReliablePacketGenerator.Release(RP)) Then
+			RemoveSystemPacket(RP)
+			
+			ReliablePackets.RemoveEach(RP)
+			
+			Return True
+		Endif
+		
+		' Return the default response.
+		Return False
+	End
+	
+	Method ReleaseReliablePacket:Bool(ID:PacketID)
+		For Local P:= Eachin ReliablePackets
+			If (P.ID = ID) Then
+				Return DeallocateReliablePacket(P)
+			Endif
+		Next
 		
 		' Return the default response.
 		Return False
@@ -731,94 +889,147 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
+	Method ReadPacketID:PacketID(S:Stream)
+		Return PacketID(S.ReadInt())
+	End
+	
+	Method WritePacketID:Void(S:Stream, ID:PacketID)
+		S.WriteInt(Int(ID))
+		
+		Return
+	End
+	
 	' If we are using TCP as our underlying protocol, then 'Source' must be specified.
 	Method ReadMessage:MessageType(P:Packet, Address:NetworkAddress, Source:Socket)
-		Local Type:= P.ReadShort()
-		
-		Select Type
-			Case MSG_TYPE_INTERNAL
-				Local InternalType:= ReadInternalMessageHeader(P)
+		Try
+			' Local variable(s):
+			Local C:Client
+			
+			If (Not IsClient) Then
+				C = GetClient(Address)
+			Else
+				C = Remote
+			Endif
+			
+			'Local EntryPoint:= S.Position
+			
+			If (UDPSocket) Then
+				Local Reliable:= ReadBool(P)
 				
-				Select InternalType
-					Case INTERNAL_MSG_CONNECT
-						If (IsClient) Then
+				If (Reliable) Then
+					Local PID:= ReadPacketID(P)
+					
+					If (C <> Null) Then
+						If (Not ConfirmReliablePacket(C, PID)) Then
 							Return MSG_TYPE_ERROR
 						Endif
-						
-						If (MultiConnection) Then
-							Local C:= GetClient(Address)
-							
-							If (C = Null) Then
-								If (Not HasCallback Or Callback.OnClientConnect(Self, Address)) Then
-									Local C:Client
-									
-									Select SocketType
-										Case SOCKET_TYPE_UDP
-											C = New Client(Address)
-										Case SOCKET_TYPE_TCP
-											C = New Client(Source)
-										Default
-											Return MSG_TYPE_ERROR
-									End Select
-									
-									Clients.AddLast(C)
-									
-									If (HasCallback) Then
-										Callback.OnClientAccepted(Self, C)
-									Endif
-								Endif
-							Else
-								SendWarningMessage(InternalType, C)
-							Endif
-						Elseif (UDPSocket) Then
-							SendForceDisconnect(Address)
-						Else
-							' Nothing so far.
-						Endif
-					Case INTERNAL_MSG_WARNING
-						Local WarningType:= ReadInternalMessageType(P)
-						
-						'Print("WARNING: Incorrect usage of internal message: " + WarningType)
-					Case INTERNAL_MSG_DISCONNECT
-						' Somewhat poorly done:
-						If (IsClient) Then
-							Close()
-						Endif
-				End Select
-			Default
-				Local DataSize:= P.ReadInt()
-				
-				Local C:Client
-				
-				If (Not IsClient) Then
-					C = GetClient(Address)
+					Endif
+				Endif
+			Endif
+			
+			Local Type:= P.ReadShort()
+			
+			Select Type
+				Case MSG_TYPE_INTERNAL
+					Local InternalType:= ReadInternalMessageHeader(P)
 					
+					Select InternalType
+						Case INTERNAL_MSG_CONNECT
+							If (IsClient) Then
+								Return MSG_TYPE_ERROR
+							Endif
+							
+							If (MultiConnection) Then
+								If (C = Null) Then
+									If (Not HasCallback Or Callback.OnClientConnect(Self, Address)) Then
+										Local C:Client
+										
+										Select SocketType
+											Case SOCKET_TYPE_UDP
+												C = New Client(Address)
+											Case SOCKET_TYPE_TCP
+												C = New Client(Source)
+											Default
+												Return MSG_TYPE_ERROR
+										End Select
+										
+										Clients.AddLast(C)
+										
+										If (HasCallback) Then
+											Callback.OnClientAccepted(Self, C)
+										Endif
+									Endif
+								Else
+									SendWarningMessage(InternalType, C)
+								Endif
+							Elseif (UDPSocket) Then
+								SendForceDisconnect(Address)
+							Else
+								' Nothing so far.
+							Endif
+						Case INTERNAL_MSG_WARNING
+							Local WarningType:= ReadInternalMessageType(P)
+							
+							'Print("WARNING: Incorrect usage of internal message: " + WarningType)
+						Case INTERNAL_MSG_DISCONNECT
+							' Somewhat poorly done:
+							If (IsClient) Then
+								Close()
+							Endif
+						Case INTERNAL_MSG_PACKET_CONFIRM
+							If (C = Null Or TCPSocket) Then
+								Return MSG_TYPE_ERROR
+							Endif
+							
+							Local PID:= ReadPacketID(P)
+							
+							ReleaseReliablePacket(PID)
+						Case INTERNAL_MSG_PING
+							If (C = Null) Then
+								Return MSG_TYPE_ERROR
+							Endif
+							
+							SendPong(C)
+						Case INTERNAL_MSG_PONG
+							If (C = Null) Then
+								Return MSG_TYPE_ERROR
+							Endif
+							
+							C.CalculatePing()
+					End Select
+				Default
 					If (C = Null) Then
 						Return MSG_TYPE_ERROR
 					Endif
-				Else
-					C = Remote
-				Endif
-				
-				If (HasCallback) Then
-					#Rem
-						Local UserData:= AllocatePacket()
-						
-						' Ensure the size demanded by the inbound packet.
-						UserData.SmartResize(DataSize)
-						
-						P.TransferAmount(UserData, DataSize)
-					#End
-				
-					Local UserData:= P
 					
-					Callback.OnReceiveMessage(Self, C, Type, UserData, DataSize)
+					Local DataSize:= P.ReadInt()
 					
-					'ReleasePacket(UserData)
-				Endif
-		End Select
+					If (HasCallback) Then
+						#Rem
+							Local UserData:= AllocatePacket()
+							
+							' Ensure the size demanded by the inbound packet.
+							UserData.SmartResize(DataSize)
+							
+							P.TransferAmount(UserData, DataSize)
+						#End
+					
+						Local UserData:= P
+						
+						Callback.OnReceiveMessage(Self, C, Type, UserData, DataSize)
+						
+						'ReleasePacket(UserData)
+					Endif
+			End Select
+			
+			Return Type
+		Catch E:StreamError
+			#If CONFIG = "debug"
+				Throw E
+			#End
+		End
 		
-		Return Type
+		Return MSG_TYPE_ERROR
 	End
 	
 	' If the 'Input' argument is 'Null', it will be passively ignored.
@@ -857,25 +1068,136 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
-	Method SendConnectMessage:Void()
+	#Rem
+		These commands may be used to send raw data.
+		
+		This can be useful, as you can generate an output packet yourself,
+		then send it as you see fit. Use these commands with caution.
+	#End
+	
+	Method RawSend:Void(Connection:Socket, RawPacket:Packet, Async:Bool=True)
+		If (IsClient Or TCPSocket) Then
+			' Obtain a transit-reference.
+			RawPacket.Obtain()
+			
+			If (Async) Then
+				Connection.SendAsync(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Self)
+			Else
+				Connection.Send(RawPacket.Data, RawPacket.Offset, RawPacket.Length)
+				
+				OnSendComplete(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Connection)
+			Endif
+		Else
+			RawSendToAll(RawPacket, Async)
+		Endif
+		
+		Return
+	End
+	
+	' This is only useful for hosts; clients will send normally.
+	Method RawSendToAll:Void(RawPacket:Packet, Async:Bool=True)
+		If (UDPSocket) Then
+			For Local C:= Eachin Clients
+				RawSend(Connection, RawPacket, C.Address, False) ' Async
+			Next
+		Else
+			For Local C:= Eachin Clients
+				RawSend(C.Connection, RawPacket, False) ' Async
+			Next
+		Endif
+		
+		Return
+	End
+	
+	' This may only be called for UDP sockets.
+	Method RawSend:Void(Connection:Socket, RawPacket:Packet, Address:NetworkAddress, Async:Bool=True)
+		If (IsClient And (Address = Null Or AddressesEqual(Address, Remote.Address))) Then
+			RawSend(Connection, RawPacket, Async)
+		Else ' If (Not IsClient) Then
+			' Obtain a transit-reference.
+			RawPacket.Obtain()
+			
+			If (Async) Then
+				Connection.SendToAsync(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address, Self)
+			Else
+				Connection.SendTo(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address)
+				
+				OnSendToComplete(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address, Connection)
+			Endif
+		Endif
+		
+		Return
+	End
+	
+	' A "title message" is an internal message that only consists of the a title/type.
+	Method SendTitleMessage:Void(InternalType:MessageType, Reliable:Bool=True, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
-		WriteInternalMessageHeader(P, INTERNAL_MSG_CONNECT)
+		WriteInternalMessageHeader(P, InternalType)
 		
-		Send(P, MSG_TYPE_INTERNAL)
+		Send(P, MSG_TYPE_INTERNAL, Reliable, Async)
 		
 		ReleasePacket(P)
 		
 		Return
 	End
 	
-	Method SendWarningMessage:Void(PostType:MessageType, C:Client)
+	Method SendTitleMessage:Void(InternalType:MessageType, C:Client, Reliable:Bool=True, Async:Bool=True)
+		Local P:= AllocatePacket()
+		
+		WriteInternalMessageHeader(P, InternalType)
+		
+		Send(P, C, MSG_TYPE_INTERNAL, Reliable, Async)
+		
+		ReleasePacket(P)
+		
+		Return
+	End
+	
+	Method SendConnectMessage:Void(Async:Bool=False)
+		SendTitleMessage(INTERNAL_MSG_CONNECT, True, Async)
+		
+		Return
+	End
+	
+	Method SendPing:Void(C:Client, Async:Bool=True)
+		SendTitleMessage(INTERNAL_MSG_PING, C, True, Async)
+		
+		Return
+	End
+	
+	Method SendPing:Void(Async:Bool=True)
+		SendTitleMessage(INTERNAL_MSG_PING, True, Async)
+		
+		Return
+	End
+	
+	Method SendPong:Void(C:Client, Async:Bool=False)
+		SendTitleMessage(INTERNAL_MSG_PING, C, True, Async)
+		
+		Return
+	End
+	
+	Method SendWarningMessage:Void(PostType:MessageType, C:Client, Reliable:Bool=True, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
 		WriteInternalMessageHeader(P, INTERNAL_MSG_WARNING)
 		WriteInternalMessageType(P, PostType)
 		
-		Send(P, C, MSG_TYPE_INTERNAL)
+		Send(P, C, MSG_TYPE_INTERNAL, Reliable, Async)
+		
+		ReleasePacket(P)
+		
+		Return
+	End
+	
+	Method SendPacketConfirmation:Void(C:Client, ID:PacketID, Async:Bool=True)
+		Local P:= AllocatePacket()
+		
+		WriteInternalMessageHeader(P, INTERNAL_MSG_PACKET_CONFIRM)
+		WritePacketID(P, ID)
+		
+		Send(P, C, MSG_TYPE_INTERNAL, False, Async)
 		
 		ReleasePacket(P)
 		
@@ -942,11 +1264,11 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	Method BigEndian:Bool() Property
-		Return PacketPool.FixByteOrder
+		Return PacketGenerator.FixByteOrder
 	End
 	
 	Method PacketSize:Int() Property
-		Return PacketPool.PacketSize
+		Return PacketGenerator.PacketSize
 	End
 	
 	Method UDPSocket:Bool() Property
@@ -990,15 +1312,23 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	' Fields (Public):
 	Field PacketReleaseTime:Duration
+	Field PacketResendTime:Duration
 	
 	' Fields (Protected):
 	Protected
 	
 	' A pool of 'Packets'; used for async I/O.
-	Field PacketPool:PacketPool
+	Field PacketGenerator:BasicPacketPool
+	
+	' A pool of 'ReliablePackets', used for reliable packet management.
+	' This is only available when using UDP as the underlying protocol.
+	Field ReliablePacketGenerator:ReliablePacketPool
 	
 	' A container of packets allocated to the internal system.
 	Field SystemPackets:Stack<Packet>
+	
+	' A container of reliable packets in transit.
+	Field ReliablePackets:Stack<ReliablePacket>
 	
 	' This acts as the primary connection-socket.
 	Field Connection:Socket
@@ -1010,6 +1340,12 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	' Used to route call-back routines.
 	Field Callback:NetworkListener
 	
+	' A counter used to keep track of reliable packets.
+	' Reliable packets are only used when UDP is the underlying protocol.
+	' If TCP is used, then reliable packets will be handled normally.
+	Field NextReliablePacketID:PacketID = INITIAL_PACKET_ID
+	
+	' This represents the underlying protocol of this network.
 	Field _SocketType:SockType = SOCKET_TYPE_UDP
 	
 	' Booleans / Flags:
