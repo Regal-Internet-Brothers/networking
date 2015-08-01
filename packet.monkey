@@ -12,6 +12,13 @@ Import brl.databuffer
 
 ' Classes:
 Class Packet Extends PublicDataStream Final
+	' Constant variable(s):
+	
+	' Defaults:
+	
+	' Booleans / Flags:
+	Const Default_BigEndianStorage:Bool = True
+	
 	' Functions:
 	Function SizeOfString:Int(S:String)
 		Return S.Length ' * 2

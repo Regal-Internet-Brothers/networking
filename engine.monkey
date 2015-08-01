@@ -572,7 +572,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	Method OnReceiveComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Source:Socket)
 		If (UDPSocket) Then
-			If (Count <= 0) Then
+			If (Count < 0) Then ' (<= 0)
 				Local P:= RetrieveWaitingPacketHandle(Data)
 				
 				If (P <> Null) Then
