@@ -79,9 +79,13 @@ Class Packet Extends PublicDataStream
 		Return Released
 	End
 	
-	' Properties (Public):
+	' Properties:
 	Method Released:Bool() Property
 		Return (RefCount <= 0)
+	End
+	
+	Method IsReliable:Bool() Property
+		Return False
 	End
 	
 	' Fields (Public):
@@ -168,6 +172,10 @@ Class ReliablePacket Extends Packet Final
 	' Properties (Public):
 	Method ID:PacketID() Property
 		Return Self._ID
+	End
+	
+	Method IsReliable:Bool() Property
+		Return True
 	End
 	
 	' Properties (Private):

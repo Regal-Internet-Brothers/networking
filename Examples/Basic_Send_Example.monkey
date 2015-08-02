@@ -27,10 +27,12 @@ Class TestApplication Extends App Implements NetworkListener Final
 	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
 	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
 	
+	Const QuickSend_Reliable:Bool = False ' True
+	
 	' Constructor(s):
 	Method OnCreate:Int()
 		#If Not USE_MOJOWRAPPER
-			SetUpdateRate(60)
+			SetUpdateRate(0) ' 60
 		#Else
 			SetUpdateRate(4)
 		#End
@@ -55,14 +57,18 @@ Class TestApplication Extends App Implements NetworkListener Final
 			
 			If (C.Open And Server.Open) Then
 				#If Not USE_MOJOWRAPPER
-					If (KeyHit(KEY_W) Or KeyDown(KEY_E)) Then
+					If (KeyHit(KEY_W)) Then
 				#End
 						SendToServer(C)
 				#If Not USE_MOJOWRAPPER
+					Elseif (KeyDown(KEY_E)) Then
+						SendToServer(C, QuickSend_Reliable, True) ' False
 					Endif
 					
-					If (KeyHit(KEY_R) Or KeyDown(KEY_T)) Then
+					If (KeyHit(KEY_R)) Then
 						SendToClients()
+					Elseif (KeyDown(KEY_T)) Then
+						SendToClients(QuickSend_Reliable, False)
 					Endif
 				#End
 			Endif
@@ -90,18 +96,18 @@ Class TestApplication Extends App Implements NetworkListener Final
 		Return 0
 	End
 	
-	Method SendToServer:Void(C:NetworkEngine)
+	Method SendToServer:Void(C:NetworkEngine, Reliable:Bool=True, Async:Bool=True)
 		ClientMsgCount += 1
 		
-		C.Send(New Packet("Message from the client: " + ClientMsgCount), 1, True, False)
+		C.Send(New Packet("Message from the client: " + ClientMsgCount), 1, Reliable, Async) ' True
 		
 		Return
 	End
 	
-	Method SendToClients:Void()
+	Method SendToClients:Void(Reliable:Bool=True, Async:Bool=False)
 		ServerMsgCount += 1
 		
-		Server.Send(New Packet("Message from the host: " + ServerMsgCount), 1, True, False)
+		Server.Send(New Packet("Message from the host: " + ServerMsgCount), 1, Reliable, Async)
 		
 		Return
 	End

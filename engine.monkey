@@ -2,6 +2,9 @@ Strict
 
 Public
 
+' Friends:
+Friend networking.client
+
 ' Imports (Public):
 
 ' Internal:
@@ -90,7 +93,8 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Const Default_PacketPoolSize:= 4
 	
 	Const Default_PacketReleaseTime:Duration = 1500 ' Milliseconds.
-	Const Default_PacketResendTime:Duration = 40 ' Milliseconds.
+	Const Default_PacketResendTime:Duration = 100 ' 40 ' Milliseconds.
+	Const Default_PingFrequency:Duration = 1000 ' Milliseconds.
 	
 	' Booleans / Flags:
 	Const Default_FixByteOrder:Bool = True
@@ -120,13 +124,14 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	' Constructor(s) (Public):
-	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime)
+	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PingFrequency:Duration=Default_PingFrequency, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime)
 		Self.PacketGenerator = New BasicPacketPool(PacketSize, PacketPoolSize, FixByteOrder)
 		
 		Self.SystemPackets = New Stack<Packet>()
 		
 		Self.PacketReleaseTime = PacketReleaseTime
 		Self.PacketResendTime = PacketResendTime
+		Self.PingFrequency = PingFrequency
 	End
 	
 	' Constructor(s) (Protected):
@@ -425,6 +430,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	' This will take the contents of 'Data', transfer it
 	' to 'RP', as well as write any needed formatting.
 	' This allows you to use 'RP' as a normal system-managed packet.
+	' 'ReliablePackets' should not be used by TCP networks.
 	Method BuildReliableMessage:Void(Data:Packet, Type:MessageType, RP:ReliablePacket)
 		If (UDPSocket) Then
 			WriteBool(RP, True)
@@ -436,7 +442,8 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
-	' This will generate a 'ReliablePacket' automatically.
+	' This will generate a 'ReliablePacket' automatically,
+	' then call the primary implementation; the same restrictions apply.
 	Method BuildReliableMessage:ReliablePacket(Data:Packet, Type:MessageType, C:Client)
 		Local RP:= AllocateReliablePacket(C)
 		
@@ -799,10 +806,20 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	' The return-value of this command specifies
 	' if 'P' is no longer in use, and has been removed.
 	Method DeallocateSystemPacket:Bool(P:Packet)
-		If (ReleasePacket(P)) Then
-			RemoveSystemPacket(P)
+		If (P.IsReliable) Then
+			Local RP:= GetReliableHandle(P)
 			
-			Return True
+			If (RP <> Null) Then
+				Return DeallocateReliablePacket(RP)
+			Endif
+		Else
+			If (ReleasePacket(P)) Then
+				If (Not UDPSocket Or IsReliablePacket(P)) Then
+					RemoveSystemPacket(P)
+				Endif
+				
+				Return True
+			Endif
 		Endif
 		
 		' Return the default response.
@@ -855,6 +872,21 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		
 		' Return the default response.
 		Return False
+	End
+	
+	Method GetReliableHandle:ReliablePacket(RawPacket:Packet)
+		For Local RP:= Eachin ReliablePackets
+			If (Packet(RP) = RawPacket) Then
+				Return RP
+			Endif
+		Next
+		
+		' Return the default response.
+		Return Null ' ReliablePacket(RawPacket)
+	End
+	
+	Method IsReliablePacket:Bool(RawPacket:Packet)
+		Return (RawPacket.IsReliable) ' (GetReliableHandle(RawPacket) <> Null)
 	End
 	
 	Method RetrieveWaitingPacketHandle:Packet(Data:DataBuffer)
@@ -985,17 +1017,21 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 							
 							ReleaseReliablePacket(PID)
 						Case INTERNAL_MSG_PING
-							If (C = Null) Then
-								Return MSG_TYPE_ERROR
+							If (IsClient) Then
+								SendPong()
+							Else
+								If (C = Null) Then
+									Return MSG_TYPE_ERROR
+								Endif
+								
+								SendPong(C)
 							Endif
-							
-							SendPong(C)
 						Case INTERNAL_MSG_PONG
-							If (C = Null) Then
+							If (C = Null) Then ' IsClient
 								Return MSG_TYPE_ERROR
 							Endif
 							
-							C.CalculatePing()
+							C.CalculatePing(Self)
 					End Select
 				Default
 					If (C = Null) Then
@@ -1098,11 +1134,11 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Method RawSendToAll:Void(RawPacket:Packet, Async:Bool=True)
 		If (UDPSocket) Then
 			For Local C:= Eachin Clients
-				RawSend(Connection, RawPacket, C.Address, False) ' Async
+				RawSend(Connection, RawPacket, C.Address, Async) ' False
 			Next
 		Else
 			For Local C:= Eachin Clients
-				RawSend(C.Connection, RawPacket, False) ' Async
+				RawSend(C.Connection, RawPacket, Async) ' False
 			Next
 		Endif
 		
@@ -1160,24 +1196,6 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
-	Method SendPing:Void(C:Client, Async:Bool=True)
-		SendTitleMessage(INTERNAL_MSG_PING, C, True, Async)
-		
-		Return
-	End
-	
-	Method SendPing:Void(Async:Bool=True)
-		SendTitleMessage(INTERNAL_MSG_PING, True, Async)
-		
-		Return
-	End
-	
-	Method SendPong:Void(C:Client, Async:Bool=False)
-		SendTitleMessage(INTERNAL_MSG_PING, C, True, Async)
-		
-		Return
-	End
-	
 	Method SendWarningMessage:Void(PostType:MessageType, C:Client, Reliable:Bool=True, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
@@ -1191,7 +1209,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
-	Method SendPacketConfirmation:Void(C:Client, ID:PacketID, Async:Bool=True)
+	Method SendPacketConfirmation:Void(C:Client, ID:PacketID, Async:Bool=False) ' True
 		Local P:= AllocatePacket()
 		
 		WriteInternalMessageHeader(P, INTERNAL_MSG_PACKET_CONFIRM)
@@ -1214,10 +1232,42 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Local P:= BuildOutputMessage(DataSegment, MSG_TYPE_INTERNAL)
 		
 		' From this point on 'P' is handled internally.
-		RawSend(Connection, P, Address)
+		RawSend(Connection, P, Address, False)
 		
 		' Release our data-segment stream.
 		ReleasePacket(DataSegment)
+		
+		Return
+	End
+	
+	Public
+	
+	' Methods (Private):
+	Private
+	
+	' I/O related:
+	Method SendPing:Void(C:Client, Async:Bool=False) ' True
+		SendTitleMessage(INTERNAL_MSG_PING, C, True, Async)
+		
+		Return
+	End
+	
+	' This overload is primarily for hosts; use at your own risk.
+	Method SendPing:Void(Async:Bool=False) ' True
+		SendTitleMessage(INTERNAL_MSG_PING, True, Async)
+		
+		Return
+	End
+	
+	Method SendPong:Void(C:Client, Async:Bool=False)
+		SendTitleMessage(INTERNAL_MSG_PING, C, True, Async)
+		
+		Return
+	End
+	
+	' This overload is primarily for clients; use at your own risk.
+	Method SendPong:Void(Async:Bool=False)
+		SendTitleMessage(INTERNAL_MSG_PONG, True, Async)
 		
 		Return
 	End
@@ -1313,6 +1363,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	' Fields (Public):
 	Field PacketReleaseTime:Duration
 	Field PacketResendTime:Duration
+	Field PingFrequency:Duration
 	
 	' Fields (Protected):
 	Protected

@@ -55,6 +55,8 @@ Class Client
 			ResetPacketTimer()
 		Endif
 		
+		ResetPingTimer()
+		
 		Closed = False
 		
 		' Return this object, so it may be pooled.
@@ -95,13 +97,20 @@ Class Client
 	End
 	
 	' Methods (Public):
-	Method Update:Void(Engine:NetworkEngine)
+	Method Update:Void(Network:NetworkEngine)
 		If (ManagesPackets) Then
-			If (Eternity.TimeDifference(PacketReleaseTimer) >= Engine.PacketReleaseTime) Then
+			If (Eternity.TimeDifference(PacketReleaseTimer) >= Network.PacketReleaseTime) Then
 				ReleaseNextPacketID()
 				
 				ResetPacketTimer()
 			Endif
+		Endif
+		
+		If (Not Pinging And Eternity.TimeDifference(PingTimer) >= Network.PingFrequency) Then
+			' Send a ping-message to this client.
+			Network.SendPing(Self)
+			
+			Pinging = True
 		Endif
 		
 		Return
@@ -158,16 +167,20 @@ Class Client
 		Return PacketReleaseTimer
 	End
 	
-	Method ResetPingTimer:Void()
+	Method ResetPingTimer:TimePoint()
 		PingTimer = Eternity.GetTime()
 		
-		Return
+		Return PingTimer
 	End
 	
-	Method CalculatePing:Void()
-		Ping = NetworkPing(Eternity.TimeDifference(PingTimer))
+	Method CalculatePing:Void(Network:NetworkEngine, StopPinging:Bool=True)
+		Ping = NetworkPing(Max(Eternity.TimeDifference(PingTimer) - Network.PingFrequency, 0))
 		
-		'ResetPingTimer()
+		If (StopPinging) Then
+			Pinging = False
+			
+			ResetPingTimer()
+		Endif
 		
 		Return
 	End
@@ -185,6 +198,14 @@ Class Client
 	
 	Method Ping:NetworkPing() Property
 		Return Self._Ping
+	End
+	
+	Method Pinging:Bool() Property
+		Return Self._Pinging
+	End
+	
+	Method PingTimer:TimePoint() Property
+		Return Self._PingTimer
 	End
 	
 	Method Address:NetworkAddress() Property
@@ -224,6 +245,23 @@ Class Client
 	
 	Public
 	
+	' Properties (Protected):
+	Protected
+	
+	Method PingTimer:Void(Input:TimePoint) Property
+		Self._PingTimer = Input
+		
+		Return
+	End
+	
+	Method Pinging:Void(Input:Bool) Property
+		Self._Pinging = Input
+		
+		Return
+	End
+	
+	Public
+	
 	' Fields (Public):
 	' Nothing so far.
 	
@@ -238,9 +276,10 @@ Class Client
 	Field ConfirmedPackets:Deque<PacketID> ' IntDeque
 	
 	Field PacketReleaseTimer:TimePoint
-	Field PingTimer:TimePoint
+	Field _PingTimer:TimePoint
 	
 	' Booleans / Flags:
+	Field _Pinging:Bool = False
 	Field _Closed:Bool = True
 	
 	Public
