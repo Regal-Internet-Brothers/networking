@@ -40,7 +40,7 @@ Class Packet Extends PublicDataStream
 		
 		Data.PokeString(0, Message, Encoding)
 		
-		Self._Position = DataLength
+		Self._Length = DataLength
 	End
 	
 	' Destructor(s):

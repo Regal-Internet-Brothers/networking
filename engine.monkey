@@ -655,12 +655,16 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		
 		If (P <> Null) Then
 			If (HasCallback) Then
+				P.SetLength(Count)
+				
 				' Manually disable 'Socket' usage when using UDP:
 				If (UDPSocket) Then
 					ReadMessage(P, Address, Source)
 				Else
 					ReadMessage(P, Address, Source)
 				Endif
+				
+				P.ResetLength()
 			Endif
 			
 			AutoLaunchReceive(Source, P)

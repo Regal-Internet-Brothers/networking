@@ -24,8 +24,8 @@ Class TestApplication Extends App Implements NetworkListener Final
 	' Constant variable(s):
 	Const PORT:= 5029
 	
-	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
-	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
+	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
+	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
 	
 	Const QuickSend_Reliable:Bool = False ' True
 	
