@@ -109,11 +109,6 @@ Class ReliablePacket Extends Packet Final
 		Super.New(Size, FixByteOrder, Resizable, SizeLimit)
 	End
 	
-	Method New(Message:String, Encoding:String="utf8", FixByteOrder:Bool=Default_BigEndianStorage, Resizable:Bool=True, SizeLimit:Int=NOLIMIT)
-		' Call the super-class's implementation.
-		Super.New(Message, Encoding, FixByteOrder, Resizable, SizeLimit)
-	End
-	
 	' Destructor(s):
 	Method ForceClose:Void()
 		' Call the super-class's implementation.

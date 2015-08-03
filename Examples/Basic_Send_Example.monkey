@@ -164,7 +164,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 		Return
 	End
 	
-	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Packet, MessageSize:Int)
+	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Stream, MessageSize:Int)
 		Print(Message.ReadString(MessageSize))
 		
 		#Rem

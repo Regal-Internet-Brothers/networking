@@ -37,9 +37,9 @@ Interface NetworkListener
 	' Methods:
 	Method OnNetworkBind:Void(Network:NetworkEngine, Successful:Bool)
 	
-	' The 'Message' object will be automatically released.
+	' The 'Message' object will be automatically released, and should not be closed.
 	' The 'MessageSize' argument specifies how many bytes are in the data-segment of 'Message'.
-	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Packet, MessageSize:Int)
+	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Stream, MessageSize:Int)
 	
 	' This is called when a client attempts to connect.
 	' The return-value of this command dictates if the client at 'Address' should be accepted.
@@ -87,6 +87,11 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	' Packet management related:
 	Const INITIAL_PACKET_ID:PacketID = 1
+	
+	' This is used to represent a single-part packet.
+	' When used to represent a packet's sequence-segment,
+	' no other sequence data should be provided.
+	Const PACKET_PIECE_FULL:PacketID = 0
 	
 	' Defaults:
 	Const Default_PacketSize:= 4096
