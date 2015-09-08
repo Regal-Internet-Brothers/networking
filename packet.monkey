@@ -10,7 +10,7 @@ Friend networking.packetpool
 Import engine
 Import client
 
-Import publicdatastream
+Import ioutil.publicdatastream
 Import eternity
 
 Import brl.databuffer
