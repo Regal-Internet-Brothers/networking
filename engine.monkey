@@ -243,6 +243,10 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Public
 	
 	' Methods:
+	Method ObjectEnumerator:list.Enumerator<Client>()
+		Return Clients.ObjectEnumerator()
+	End
+	
 	Method SetCallback:Void(Callback:NetworkListener)
 		Self.Callback = Callback
 		

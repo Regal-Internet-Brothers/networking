@@ -87,6 +87,12 @@ Class TestApplication Extends App Implements NetworkListener Final
 				'#End
 			Endif
 			
+			If (KeyHit(KEY_P)) Then
+				For Local C:= Eachin Server
+					Print("PING: " + C.Ping)
+				Next
+			Endif
+			
 			If (KeyHit(KEY_F)) Then
 				DebugStop()
 			Endif
