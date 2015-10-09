@@ -57,6 +57,7 @@ Class Client
 		
 		ResetPingTimer()
 		
+		Closing = False
 		Closed = False
 		
 		' Return this object, so it may be pooled.
@@ -66,12 +67,8 @@ Class Client
 	Public
 	
 	' Destructor(s):
-	Method Discard:Void()
-		Close(True)
-		
-		Return
-	End
 	
+	' This destructor is used internally, please disconnect clients using a 'NetworkEngine'.
 	Method Close:Void(ReleaseInternalData:Bool=False)
 		Address = Null
 		
@@ -91,6 +88,7 @@ Class Client
 			Endif
 		Endif
 		
+		Closing = False
 		Closed = True
 		
 		Return
@@ -114,6 +112,10 @@ Class Client
 		Endif
 		
 		Return
+	End
+	
+	Method ProjectedPing:NetworkPing(Network:NetworkEngine)
+		Return NetworkPing(Max(Eternity.TimeDifference(PingTimer) - Network.PingFrequency, 0))
 	End
 	
 	' This will add the 'PacketID' specified
@@ -174,7 +176,7 @@ Class Client
 	End
 	
 	Method CalculatePing:Void(Network:NetworkEngine, StopPinging:Bool=True)
-		Ping = NetworkPing(Max(Eternity.TimeDifference(PingTimer) - Network.PingFrequency, 0))
+		Ping = ProjectedPing(Network)
 		
 		If (StopPinging) Then
 			Pinging = False
@@ -188,6 +190,19 @@ Class Client
 	Public
 	
 	' Properties (Public):
+	
+	' This specifies if this client is in the process of disconnecting/closing.
+	Method Closing:Bool() Property
+		Return Self._Closing
+	End
+	
+	' Use caution when setting this property-overload.
+	Method Closing:Void(Input:Bool) Property
+		Self._Closing = Input
+		
+		Return
+	End
+	
 	Method Closed:Bool() Property
 		Return Self._Closed
 	End
@@ -280,6 +295,7 @@ Class Client
 	
 	' Booleans / Flags:
 	Field _Pinging:Bool = False
+	Field _Closing:Bool = False
 	Field _Closed:Bool = True
 	
 	Public

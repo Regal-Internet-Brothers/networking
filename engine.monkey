@@ -98,12 +98,16 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Const Default_PacketPoolSize:= 4
 	
 	Const Default_PacketReleaseTime:Duration = 1500 ' Milliseconds.
-	Const Default_PacketResendTime:Duration = 100 ' 40 ' Milliseconds.
+	Const Default_PacketResendTime:Duration = 40 ' 100 ' Milliseconds.
 	Const Default_PingFrequency:Duration = 1000 ' Milliseconds.
+	
+	Const Default_MaxPing:NetworkPing = 4000
 	
 	' Booleans / Flags:
 	Const Default_FixByteOrder:Bool = True
 	Const Default_MultiConnection:Bool = True
+	
+	Const Default_ClientMessagesAfterDisconnect:Bool = False ' True
 	
 	' Functions:
 	Function AddressesEqual:Bool(X:NetworkAddress, Y:NetworkAddress)
@@ -129,14 +133,15 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	' Constructor(s) (Public):
-	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PingFrequency:Duration=Default_PingFrequency, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime)
+	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PingFrequency:Duration=Default_PingFrequency, MaxPing:NetworkPing=Default_MaxPing, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime)
 		Self.PacketGenerator = New BasicPacketPool(PacketSize, PacketPoolSize, FixByteOrder)
-		
 		Self.SystemPackets = New Stack<Packet>()
+		
+		Self.PingFrequency = PingFrequency
+		Self.MaxPing = MaxPing
 		
 		Self.PacketReleaseTime = PacketReleaseTime
 		Self.PacketResendTime = PacketResendTime
-		Self.PingFrequency = PingFrequency
 	End
 	
 	' Constructor(s) (Protected):
@@ -202,7 +207,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 			If (HasCallback) Then
 				Callback.OnDisconnected(Self)
 			Endif
-		
+			
 			Connection.Close()
 			
 			Connection = Null
@@ -210,7 +215,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 			If (Clients <> Null) Then
 				If (Not IsClient) Then
 					For Local C:= Eachin Clients
-						C.Close()
+						C.Close() ' ReleaseClient(C)
 					Next
 				Endif
 				
@@ -318,6 +323,14 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Method UpdateClients:Void()
 		If (Not IsClient) Then
 			For Local C:= Eachin Clients
+				If (UDPSocket) Then
+					If (C.Pinging And C.ProjectedPing(Self) > MaxPing) Then
+						ReleaseClient(C)
+						
+						Continue
+					Endif
+				Endif
+				
 				C.Update(Self)
 			Next
 		Else
@@ -348,7 +361,9 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Method Send:Void(P:Packet, Type:MessageType, Reliable:Bool=False, Async:Bool=True)
 		If (UDPSocket And Reliable) Then
 			For Local C:= Eachin Clients
-				Send(P, C, Type, True, Async) ' Reliable
+				If (Not C.Closing Or ClientMessagesAfterDisconnect) Then
+					Send(P, C, Type, True, Async) ' Reliable
+				Endif
 			Next
 		Else
 			AutoSendRaw(BuildOutputMessage(P, Type), Async)
@@ -374,7 +389,9 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 			
 			#Rem
 				For Local C:= Eachin Clients
-					RawSend(C.Connection, BuildOutputMessage(P, Type), Async)
+					If (Not C.Closing Or ClientMessagesAfterDisconnect) Then
+						RawSend(C.Connection, BuildOutputMessage(P, Type), Async)
+					Endif
 				Next
 			#End
 		Else
@@ -397,6 +414,55 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
+	' The 'Client' specified will be marked as 'Closing' at the end of execution.
+	Method Disconnect:Void(C:Client)
+		' Send a reliable message to the 'Client' specified.
+		SendDisconnect(C)
+		
+		' Mark this 'Client' accordingly.
+		C.Closing = True
+		
+		Return
+	End
+	
+	' The 'Client' specified will be released at the end of execution.
+	Method ForceDisconnect:Void(C:Client)
+		' Make a lazy attempt to tell the 'Client' they're being disconnected.
+		SendForceDisconnect(C)
+		
+		' Manually release the 'Client' specified.
+		ReleaseClient(C)
+		
+		Return
+	End
+	
+	#Rem
+		ATTENTION: Use 'ForceDisconnect' instead. The only
+		exception is if you intend to manage 'C' yourself. (Use at your own risk)
+		
+		The 'Client' specified will be in its original state after calling this.
+		However, this will send an unreliable disconnection-notice to the 'Client'.
+		Because of this, it is a bad idea to call this and not claim 'C' as closing.
+		
+		This is completely unmanaged, however, so
+		it's up to the caller to handle 'C' properly.
+		
+		Technically, a "force disconnect" is unmanaged, so the best
+		course of action would be to ignore the client everywhere.
+		
+		There's two ways of doing this, the safe way, and the unsafe way:
+		
+		The safe way is considered best practice. After calling
+		this command, manually call 'ReleaseClient'. This will result
+		in a proper disconnection from the host's perspective.
+		
+		The unsafe way would be to set the 'C' argument's 'Closing' flag.
+		Doing this is a bad idea for forced disconnections, as internal
+		messages will still be accepted.
+		
+		And, if 'ClientMessagesAfterDisconnect' is on, normal messages will work, too.
+	#End
+	
 	Method SendForceDisconnect:Void(C:Client)
 		' Local variable(s):
 		
@@ -413,8 +479,34 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		' Release our temporary packet.
 		ReleasePacket(P)
 		
-		' Finally, manually release the 'Client' specified.
-		ReleaseClient(C)
+		Return
+	End
+	
+	#Rem
+		ATTENTION: This routine does not perfectly disconnect 'Clients' on its own.
+		
+		This command should only be called by users for debugging purposes,
+		or in the case of lax disconnection environments.
+		
+		This is used internally by 'DisconnectClient', which is
+		the proper way to disconnect a 'Client' from this network.
+	#End
+	
+	Method SendDisconnect:Void(C:Client)
+		' Local variable(s):
+		
+		' Allocate a temporary packet.
+		Local P:= AllocatePacket()
+		
+		' Write the data-segment (Internal message-data):
+		WriteInternalMessageHeader(P, INTERNAL_MSG_DISCONNECT)
+		
+		' Send to the 'Client' specified, blocking until
+		' the desired operation has been completed.
+		Send(P, C, MSG_TYPE_INTERNAL, True, False)
+		
+		' Release our temporary packet.
+		ReleasePacket(P)
 		
 		Return
 	End
@@ -523,11 +615,13 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		
 		Clients.RemoveEach(C)
 		
-		For Local RP:= Eachin ReliablePackets
-			If (RP.Destination = C) Then
-				DeallocateReliablePacket(RP)
-			Endif
-		Next
+		If (UDPSocket) Then
+			For Local RP:= Eachin ReliablePackets
+				If (RP.Destination = C) Then
+					DeallocateReliablePacket(RP)
+				Endif
+			Next
+		Endif
 		
 		If (HasCallback) Then
 			Callback.OnClientDisconnected(Self, C)
@@ -539,6 +633,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	' This should only be called when using TCP.
+	' In addition, the 'Socket' specified must be held by a client.
 	Method ReleaseClient:Void(S:Socket)
 		ReleaseClient(GetClient(S))
 		
@@ -727,7 +822,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Local P:= RetrieveWaitingPacketHandle(Data)
 		
 		If (P <> Null) Then
-			If (HasCallback) Then
+			If (Count > 0 And HasCallback) Then
 				Callback.OnSendComplete(Self, P, Address, Count)
 			Endif
 			
@@ -743,6 +838,18 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	Method OnSendComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Source:Socket)
+		If (Count = 0) Then
+			Local P:= RetrieveWaitingPacketHandle(Data)
+			
+			If (P <> Null) Then
+				P.Release()
+				
+				DeallocateSystemPacket(P)
+			Endif
+			
+			Return
+		Endif
+		
 		If (UDPSocket) Then
 			OnSendToComplete(Data, Offset, Count, Remote.Address, Source)
 		Else
@@ -946,6 +1053,10 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	' If we are using TCP as our underlying protocol, then 'Source' must be specified.
 	Method ReadMessage:MessageType(P:Packet, Address:NetworkAddress, Source:Socket)
+		If (P.Eof) Then
+			Return MSG_TYPE_ERROR
+		Endif
+		
 		Try
 			' Local variable(s):
 			Local C:Client
@@ -954,6 +1065,11 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 				C = GetClient(Address)
 			Else
 				C = Remote
+				
+				' Done for security purposes:
+				If (Not AddressesEqual(C.Address, Address)) Then
+					Return MSG_TYPE_ERROR
+				Endif
 			Endif
 			
 			'Local EntryPoint:= S.Position
@@ -1008,6 +1124,9 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 									SendWarningMessage(InternalType, C)
 								Endif
 							Elseif (UDPSocket) Then
+								' The the remote machine that it's trying
+								' to connect to a single-connection network.
+								' (Force disconnect using direct address)
 								SendForceDisconnect(Address)
 							Else
 								' Nothing so far.
@@ -1017,7 +1136,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 							
 							'Print("WARNING: Incorrect usage of internal message: " + WarningType)
 						Case INTERNAL_MSG_DISCONNECT
-							' Somewhat poorly done:
+							' Lazy, but it gets the job done:
 							If (IsClient) Then
 								Close()
 							Endif
@@ -1033,14 +1152,14 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 							If (IsClient) Then
 								SendPong()
 							Else
-								If (C = Null) Then
+								If (C = Null Or C.Closing) Then
 									Return MSG_TYPE_ERROR
 								Endif
 								
 								SendPong(C)
 							Endif
 						Case INTERNAL_MSG_PONG
-							If (C = Null) Then ' IsClient
+							If (C = Null Or C.Closing) Then ' IsClient
 								Return MSG_TYPE_ERROR
 							Endif
 							
@@ -1048,6 +1167,11 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 					End Select
 				Default
 					If (C = Null) Then
+						Return MSG_TYPE_ERROR
+					Endif
+					
+					' Check if 'C' is closing, and we're allowed to ignore this message:
+					If (Not ClientMessagesAfterDisconnect And C.Closing) Then
 						Return MSG_TYPE_ERROR
 					Endif
 					
@@ -1074,6 +1198,8 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 			Return Type
 		Catch E:StreamError
 			#If CONFIG = "debug"
+				'DebugStop()
+				
 				Throw E
 			#End
 		End
@@ -1147,18 +1273,22 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Method RawSendToAll:Void(RawPacket:Packet, Async:Bool=True)
 		If (UDPSocket) Then
 			For Local C:= Eachin Clients
-				RawSend(Connection, RawPacket, C.Address, Async) ' False
+				If (Not C.Closing Or ClientMessagesAfterDisconnect) Then
+					RawSend(Connection, RawPacket, C.Address, Async) ' False
+				Endif
 			Next
 		Else
 			For Local C:= Eachin Clients
-				RawSend(C.Connection, RawPacket, Async) ' False
+				If (Not C.Closing Or ClientMessagesAfterDisconnect) Then
+					RawSend(C.Connection, RawPacket, Async) ' False
+				Endif
 			Next
 		Endif
 		
 		Return
 	End
 	
-	' This may only be called for UDP sockets.
+	' This only works with UDP sockets.
 	Method RawSend:Void(Connection:Socket, RawPacket:Packet, Address:NetworkAddress, Async:Bool=True)
 		If (IsClient And (Address = Null Or AddressesEqual(Address, Remote.Address))) Then
 			RawSend(Connection, RawPacket, Async)
@@ -1235,7 +1365,22 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
-	' This overload is UDP-only; use at your own risk.
+	#Rem
+		ATTENTION: This overload is UDP-only; use at your own risk.
+		
+		This will send a disconnection message to the address specified.
+		Since this doesn't rely on 'Client' objects, such behavior is unrelated.
+		If you're using a 'Client' object's address for this, you're "doing it wrong".
+		
+		You should use 'DisconnectClient', or 'ForceDisconnect'.
+		
+		Less ideally, but still a better option than this,
+		is the other overload for this command.
+		
+		Calling this on a 'Client' object's address will result in partially
+		undefined behavior. The likely outcome is a connection time-out.
+	#End
+	
 	Method SendForceDisconnect:Void(Address:NetworkAddress)
 		' Not exactly efficient, but it works:
 		Local DataSegment:= AllocatePacket()
@@ -1326,6 +1471,28 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return (Callback <> Null)
 	End
 	
+	Method HasClient:Bool() Property
+		For Local C:= Eachin Clients
+			If (Not C.Closing) Then ' And Not C.Closed
+				Return True
+			Endif
+		Next
+		
+		Return False
+	End
+	
+	Method ClientCount:Int() Property
+		Local Count:= 0
+		
+		For Local C:= Eachin Clients
+			If (Not C.Closing) Then ' And Not C.Closed
+				Count += 1
+			Endif
+		Next
+		
+		Return Count
+	End
+	
 	Method BigEndian:Bool() Property
 		Return PacketGenerator.FixByteOrder
 	End
@@ -1374,9 +1541,24 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Public
 	
 	' Fields (Public):
+	
+	' The amount of time it takes to forget a packet ID.
 	Field PacketReleaseTime:Duration
+	
+	' The amount of time between reliable-packet re-sends.
 	Field PacketResendTime:Duration
+	
+	' The minimum amount of time between ping-detections.
 	Field PingFrequency:Duration
+	
+	' The maximum ping a 'Client' can have before being released.
+	Field MaxPing:NetworkPing
+	
+	' Booleans / Flags:
+	
+	' This specifies if normal messages should be accepted
+	' after a client has been told to disconnect.
+	Field ClientMessagesAfterDisconnect:Bool = Default_ClientMessagesAfterDisconnect
 	
 	' Fields (Protected):
 	Protected

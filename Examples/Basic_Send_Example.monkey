@@ -24,8 +24,8 @@ Class TestApplication Extends App Implements NetworkListener Final
 	' Constant variable(s):
 	Const PORT:= 5029
 	
-	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
-	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
+	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
+	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
 	
 	Const QuickSend_Reliable:Bool = False ' True
 	
@@ -52,7 +52,16 @@ Class TestApplication Extends App Implements NetworkListener Final
 		
 		Server.Update()
 		
-		For Local C:= Eachin Clients
+		'If (ClientNetworks.IsEmpty()) Then
+		If (ClientCreated And Server.Open And Not Server.HasClient) Then
+			Print("All clients have disconnected, exiting demo...")
+			
+			OnClose()
+			
+			Return 0
+		Endif
+		
+		For Local C:= Eachin ClientNetworks
 			C.Update()
 			
 			If (C.Open And Server.Open) Then
@@ -68,6 +77,8 @@ Class TestApplication Extends App Implements NetworkListener Final
 					If (KeyHit(KEY_R)) Then
 						SendToClients()
 					Elseif (KeyDown(KEY_T)) Then
+						'DebugStop()
+						
 						SendToClients(QuickSend_Reliable, False)
 					Endif
 				#End
@@ -79,11 +90,11 @@ Class TestApplication Extends App Implements NetworkListener Final
 				'Server.Close()
 				
 				'#Rem
-					For Local C:= Eachin Clients
+					For Local C:= Eachin ClientNetworks
 						C.Close()
 					Next
 					
-					Clients.Clear()
+					'ClientNetworks.Clear()
 				'#End
 			Endif
 			
@@ -128,7 +139,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 	Method OnClose:Int()
 		Server.Close()
 		
-		For Local C:= Eachin Clients
+		For Local C:= Eachin ClientNetworks
 			C.Close()
 		Next
 		
@@ -148,19 +159,19 @@ Class TestApplication Extends App Implements NetworkListener Final
 			
 			Return
 		Else
-			If (Clients.Contains(Network)) Then
+			If (ClientNetworks.Contains(Network)) Then
 				Print("Client socket bound.")
 			Elseif (Network = Server) Then
 				Print("Server socket bound.")
 				
-				For Local I:= 1 To 1 ' 4 ' 8
+				For Local I:= 1 To 2 ' 1 ' 4 ' 8
 					Local Client:= New NetworkEngine()
 					
 					Client.SetCallback(Self)
 					
 					Client.Connect("127.0.0.1", PORT, True, PROTOCOL)
 					
-					Clients.AddLast(Client)
+					ClientNetworks.AddLast(Client)
 				Next
 			Else
 				Print("Unknown network bound.")
@@ -208,6 +219,8 @@ Class TestApplication Extends App Implements NetworkListener Final
 	Method OnClientAccepted:Void(Network:NetworkEngine, C:Client)
 		Print("Client accepted: " + C.Address)
 		
+		ClientCreated = True
+		
 		Return
 	End
 	
@@ -218,7 +231,13 @@ Class TestApplication Extends App Implements NetworkListener Final
 	End
 	
 	Method OnDisconnected:Void(Network:NetworkEngine)
-		Print("Disconnected.")
+		If (ClientNetworks.Contains(Network)) Then
+			Print("Client disconnected.")
+			
+			ClientNetworks.RemoveEach(Network)
+		Else
+			Print("Server disconnected.")
+		Endif
 		
 		Return
 	End
@@ -226,10 +245,12 @@ Class TestApplication Extends App Implements NetworkListener Final
 	' Fields:
 	Field Server:NetworkEngine
 	
-	Field Clients:= New List<NetworkEngine>()
+	Field ClientNetworks:= New List<NetworkEngine>()
 	
 	Field ServerMsgCount:Int
 	Field ClientMsgCount:Int
+	
+	Field ClientCreated:Bool
 End
 
 ' Functions:
