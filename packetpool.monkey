@@ -2,8 +2,17 @@ Strict
 
 Public
 
-' Imports:
+' Imports (Public):
 Import packet
+
+' Imports (Private):
+Private
+
+Import megapacket
+
+Import brl.pool
+
+Public
 
 Class PacketPool<PacketType> Abstract
 	' Constructor(s) (Public):
@@ -161,3 +170,8 @@ Class ReliablePacketPool Extends PacketPool<ReliablePacket> Final
 	
 	Public
 End
+
+#Rem
+	Class MegaPacketPool Extends Pool<MegaPacket> Final
+	End
+#End

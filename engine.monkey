@@ -2,14 +2,20 @@ Strict
 
 Public
 
+' Preprocessor related:
+'#NETWORKING_ENGINE_SPACE_OUT_MEGAPACKETS = True
+
 ' Friends:
 Friend networking.client
+Friend networking.megapacket
 
 ' Imports (Public):
 
 ' Internal:
 Import client
 Import packet
+
+Import megapacket
 
 ' External:
 Import eternity
@@ -28,9 +34,11 @@ Public
 
 ' Aliases:
 Alias NetworkPing = Int ' UShort
-Alias MessageType = Int ' Short
-Alias ProtocolType = Int
+Alias MessageType = Int ' UShort ' Short
+Alias ProtocolType = Int ' Byte
 Alias PacketID = Int ' UInt
+Alias ExtPacketID = Int ' UInt
+Alias PacketExtResponse = Int ' Byte
 
 ' Interfaces:
 Interface NetworkListener
@@ -59,6 +67,27 @@ Interface NetworkListener
 	
 	' The 'P' object represents the "real" 'Packet' that was sent. (Unlike 'OnReceiveMessage')
 	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:NetworkAddress, BytesSent:Int)
+	
+	' 'MegaPacket' callback layer:
+	
+	' This is called when a remote 'MegaPacket' request is accepted on this end.
+	Method OnMegaPacketRequestAccepted:Void(Network:NetworkEngine, MP:MegaPacket)
+	
+	' This is called when a 'MegaPacket' request your end sent is accepted.
+	Method OnMegaPacketRequestSucceeded:Void(Network:NetworkEngine, MP:MegaPacket)
+	
+	' This is called when a pending 'MegaPacket' has been rejected by the other end.
+	Method OnMegaPacketRequestFailed:Void(Network:NetworkEngine, MP:MegaPacket)
+	
+	' This is called on both ends, and signifies a failure by means of an "abort".
+	Method OnMegaPacketRequestAborted:Void(Network:NetworkEngine, MP:MegaPacket)
+	
+	' This is called when a 'MegaPacket' is finished. (Fully built from the data we received)
+	' This will be called before 'ReadMessageBody' is executed.
+	Method OnMegaPacketFinished:Void(Network:NetworkEngine, MP:MegaPacket)
+	
+	' This is called when a 'MegaPacket' is done being sent.
+	Method OnMegaPacketSent:Void(Network:NetworkEngine, MP:MegaPacket)
 End
 
 ' Classes:
@@ -85,14 +114,25 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Const INTERNAL_MSG_PACKET_CONFIRM:= 4
 	Const INTERNAL_MSG_PING:= 5
 	Const INTERNAL_MSG_PONG:= 6
+	Const INTERNAL_MSG_REQUEST_MEGA_PACKET:= 7
+	Const INTERNAL_MSG_MEGA_PACKET_RESPONSE:= 8
+	
+	' TODO: Implement re-send requests, segment validation, etc.
+	Const INTERNAL_MSG_MEGA_PACKET_ACTION:= 9
 	
 	' Packet management related:
 	Const INITIAL_PACKET_ID:PacketID = 1
+	Const INITIAL_MEGA_PACKET_ID:ExtPacketID = 1
 	
 	' This is used to represent a single-part packet.
 	' When used to represent a packet's sequence-segment,
 	' no other sequence data should be provided.
 	Const PACKET_PIECE_FULL:PacketID = 0
+	
+	' Mega-packet response codes:
+	Const MEGA_PACKET_RESPONSE_TOO_MANY_CHUNKS:PacketExtResponse = 0
+	Const MEGA_PACKET_RESPONSE_ACCEPT:PacketExtResponse = 1
+	Const MEGA_PACKET_RESPONSE_ABORT:PacketExtResponse = 2
 	
 	' Defaults:
 	Const Default_PacketSize:= 4096
@@ -102,6 +142,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Const Default_PacketResendTime:Duration = 100 ' 40 ' Milliseconds.
 	Const Default_PingFrequency:Duration = 1000 ' Milliseconds.
 	
+	Const Default_MaxChunksPerMegaPacket:= 2048 ' 8MB (At 4096 bytes per packet)
 	Const Default_MaxPing:NetworkPing = 4000
 	
 	' Booleans / Flags:
@@ -119,6 +160,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return (X.Port = Y.Port And X.Host = Y.Host)
 	End
 	
+	' I/O related:
 	Function WriteBool:Void(S:Stream, Value:Bool)
 		If (Value) Then
 			S.WriteByte(1)
@@ -133,13 +175,25 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return (S.ReadByte() <> 0)
 	End
 	
+	Function WritePacketExtResponse:Void(S:Stream, Response:PacketExtResponse)
+		S.WriteByte(Response)
+		
+		Return
+	End
+	
+	Function ReadPacketExtResponse:PacketExtResponse(S:Stream)
+		Return S.ReadByte()
+	End
+	
 	' Constructor(s) (Public):
-	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PingFrequency:Duration=Default_PingFrequency, MaxPing:NetworkPing=Default_MaxPing, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime)
+	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PingFrequency:Duration=Default_PingFrequency, MaxPing:NetworkPing=Default_MaxPing, MaxChunksPerMegaPacket:Int=Default_MaxChunksPerMegaPacket, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime)
 		Self.PacketGenerator = New BasicPacketPool(PacketSize, PacketPoolSize, FixByteOrder)
 		Self.SystemPackets = New Stack<Packet>()
 		
 		Self.PingFrequency = PingFrequency
 		Self.MaxPing = MaxPing
+		
+		Self.MaxChunksPerMegaPacket = MaxChunksPerMegaPacket
 		
 		Self.PacketReleaseTime = PacketReleaseTime
 		Self.PacketResendTime = PacketResendTime
@@ -177,6 +231,10 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 				Endif
 		End Select
 		
+		InitMegaPackets()
+		
+		Self.NextMegaPacketID = INITIAL_MEGA_PACKET_ID
+		
 		If (Clients = Null) Then
 			Clients = New List<Client>()
 		Endif
@@ -191,6 +249,17 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		
 		If (ReliablePacketGenerator = Null) Then
 			ReliablePacketGenerator = New ReliablePacketPool(PacketSize, PacketGenerator.InitialPoolSize, BigEndian)
+		Endif
+		
+		Return
+	End
+	
+	Method InitMegaPackets:Void()
+		' TODO: Add 'MegaPacket' pooling.
+		
+		' Check if we have a pending 'MegaPacket' container, if not, make one:
+		If (PendingMegaPackets = Null) Then
+			PendingMegaPackets = New Stack<MegaPacket>()
 		Endif
 		
 		Return
@@ -257,6 +326,9 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 			
 			' Deinitialize any remaining reliable packets.
 			DeinitReliablePackets()
+			
+			' Deinitialize any remaining "mega-packets".
+			DeinitMegaPackets()
 		Endif
 		
 		' Reset our multi-connection setting.
@@ -319,6 +391,21 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Method DeinitReliablePackets:Void()
 		If (ReliablePackets <> Null) Then
 			ReliablePackets.Clear()
+		Endif
+		
+		Return
+	End
+	
+	Method DeinitMegaPackets:Void()
+		' TODO: Add 'MegaPacket' pooling.
+		
+		' Check if we have this container, just in case.
+		If (PendingMegaPackets <> Null) Then
+			For Local MP:= Eachin PendingMegaPackets
+				MP.Reset() ' Close()
+			Next
+			
+			PendingMegaPackets.Clear()
 		Endif
 		
 		Return
@@ -402,6 +489,34 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 			Next
 		Endif
 		
+		' TODO: Move this check into the loop, so we can have proper timeouts.
+		#If NETWORKING_ENGINE_SPACE_OUT_MEGAPACKETS
+			For Local MP:= Eachin MegaPackets
+				' TODO: Add timeouts for 'MegaPackets'.
+				
+				If (MP.Confirmed) Then
+					If (MP.LinkCount > 0) Then
+						Local P:= MP.Links.Pop()
+						
+						SendMegaPacketPiece(P, MP)
+						
+						MP.ReleasePacket(P)
+					Else
+						RemovePendingMegaPacket(MP)
+						
+						If (HasCallback) Then
+							Callback.OnMegaPacketSent(Self, MP)
+						Endif
+						
+						' TODO: Add 'MegaPacket' pooling.
+						MP.Reset()
+					Endif
+				'Else
+					' INSERT TIMEOUT CHECK HERE.
+				Endif
+			Next
+		#End
+		
 		Return
 	End
 	
@@ -452,27 +567,60 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	' This overload sends to every connected 'Client'. (Sends to the host for clients)
-	Method Send:Void(P:Packet, Type:MessageType, Reliable:Bool=False, Async:Bool=True)
+	Method Send:Void(P:Packet, Type:MessageType, Reliable:Bool=False, Async:Bool=True, ExtendedPacket:Bool=False)
 		If (UDPSocket And Reliable) Then
 			For Local C:= Eachin Clients
 				If (Not C.Closing Or ClientMessagesAfterDisconnect) Then
-					Send(P, C, Type, True, Async) ' Reliable
+					Send(P, C, Type, True, Async, ExtendedPacket) ' Reliable
 				Endif
 			Next
 		Else
-			AutoSendRaw(BuildOutputMessage(P, Type), Async)
+			AutoSendRaw(BuildOutputMessage(P, Type, ExtendedPacket), Async)
 		Endif
 		
 		Return
 	End
 	
 	' This overload sends directly to the 'Client' specified.
-	Method Send:Void(P:Packet, C:Client, Type:MessageType, Reliable:Bool=False, Async:Bool=True)
+	Method Send:Void(P:Packet, C:Client, Type:MessageType, Reliable:Bool=False, Async:Bool=True, ExtendedPacket:Bool=False)
 		If (UDPSocket And Reliable) Then
-			Send(BuildReliableMessage(P, Type, C), Async)
+			Send(BuildReliableMessage(P, Type, C, ExtendedPacket), Async)
 		Else
-			AutoSendRaw(BuildOutputMessage(P, Type), C, Async)
+			AutoSendRaw(BuildOutputMessage(P, Type, ExtendedPacket), C, Async)
 		Endif
+		
+		Return
+	End
+	
+	' 'MegaPacket' wrapper API:
+	
+	#Rem
+		DESCRIPTION:
+			* These overloads provide an easy to use
+			interface for sending 'MegaPacket' objects.
+		NOTES:
+			* Changing the 'Reliable' argument for these overloads is
+			considered bad practice. Use that argument at your own risk.
+	#End
+	
+	Method Send:Void(MP:MegaPacket, Type:MessageType)
+		MP.Destination = Null
+		MP.Type = Type
+		
+		AddPendingMegaPacket(MP)
+		
+		SendMegaPacketRequest(MP)
+		
+		Return
+	End
+	
+	Method Send:Void(MP:MegaPacket, C:Client, Type:MessageType)
+		MP.Destination = C
+		MP.Type = Type
+		
+		AddPendingMegaPacket(MP)
+		
+		SendMegaPacketRequest(MP, C)
 		
 		Return
 	End
@@ -485,12 +633,12 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 			#Rem
 				For Local C:= Eachin Clients
 					If (Not C.Closing Or ClientMessagesAfterDisconnect) Then
-						RawSend(C.Connection, BuildOutputMessage(P, Type), Async)
+						RawSend(C.Connection, BuildOutputMessage(P, Type, ...), Async)
 					Endif
 				Next
 			#End
 		Else
-			'Local RawPacket:= BuildOutputMessage(P, Type)
+			'Local RawPacket:= BuildOutputMessage(P, Type, ...)
 			
 			RawSend(Connection, RawPacket, Async)
 		Endif
@@ -681,12 +829,14 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	' This will generate a "system packet", which is handled internally.
 	' For details on the 'DefaultSize' argument, please see 'WriteMessage'.
 	' Internal messages do not serialize their data-segments' lengths.
-	Method BuildOutputMessage:Packet(P:Packet, Type:MessageType, DefaultSize:Int=0)
+	Method BuildOutputMessage:Packet(P:Packet, Type:MessageType, ExtendedPacket:Bool=False, DefaultSize:Int=0)
 		Local Output:= AllocateSystemPacket()
 		
 		If (UDPSocket) Then
 			WriteBool(Output, False)
 		Endif
+		
+		WriteBool(Output, ExtendedPacket)
 		
 		WriteMessage(Output, Type, P, DefaultSize)
 		
@@ -697,11 +847,13 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	' to 'RP', as well as write any needed formatting.
 	' This allows you to use 'RP' as a normal system-managed packet.
 	' 'ReliablePackets' should not be used by TCP networks.
-	Method BuildReliableMessage:Void(Data:Packet, Type:MessageType, RP:ReliablePacket)
+	Method BuildReliableMessage:Void(Data:Packet, Type:MessageType, RP:ReliablePacket, ExtendedPacket:Bool=False)
 		If (UDPSocket) Then
 			WriteBool(RP, True)
 			WritePacketID(RP, RP.ID)
 		Endif
+		
+		WriteBool(RP, ExtendedPacket)
 		
 		WriteMessage(RP, Type, Data)
 		
@@ -710,10 +862,10 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	' This will generate a 'ReliablePacket' automatically,
 	' then call the primary implementation; the same restrictions apply.
-	Method BuildReliableMessage:ReliablePacket(Data:Packet, Type:MessageType, C:Client)
+	Method BuildReliableMessage:ReliablePacket(Data:Packet, Type:MessageType, C:Client, ExtendedPacket:Bool=False)
 		Local RP:= AllocateReliablePacket(C)
 		
-		BuildReliableMessage(Data, Type, RP)
+		BuildReliableMessage(Data, Type, RP, ExtendedPacket)
 		
 		Return RP
 	End
@@ -821,6 +973,69 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		SendPacketConfirmation(C, ID)
 		
 		Return C.ConfirmPacket(ID)
+	End
+	
+	' 'MegaPacket' output-management API:
+	Method AddPendingMegaPacket:Void(MP:MegaPacket)
+		PendingMegaPackets.Push(MP)
+		
+		Return
+	End
+	
+	Method RemovePendingMegaPacket:Void(MP:MegaPacket)
+		PendingMegaPackets.RemoveEach(MP)
+		
+		Return
+	End
+	
+	Method RemovePendingMegaPacket:Void(ID:ExtPacketID)
+		Local MP:= GetPendingMegaPacket(ID)
+		
+		If (MP <> Null) Then
+			RemovePendingMegaPacket(MP)
+		Endif
+		
+		Return
+	End
+	
+	Method GetPendingMegaPacket:MegaPacket(ID:ExtPacketID)
+		For Local MP:= Eachin PendingMegaPackets
+			If (MP.ID = ID) Then
+				Return MP
+			Endif
+		Next
+		
+		' Return the default response.
+		Return Null
+	End
+	
+	Method HasPendingMegaPacket:Bool(ID:ExtPacketID)
+		Return (GetPendingMegaPacket(ID) <> Null)
+	End
+	
+	Method AbortMegaPacket:Void(C:Client, ID:ExtPacketID)
+		SendMegaPacketRejection(ID, MEGA_PACKET_RESPONSE_ABORT, C)
+		
+		Return
+	End
+	
+	Method AbortMegaPacket:Void(C:Client, MP:MegaPacket, FromClient:Bool)
+		AbortMegaPacket(C, MP.ID)
+		
+		If (HasCallback) Then
+			Callback.OnMegaPacketRequestAborted(Self, MP)
+		Endif
+		
+		If (FromClient) Then
+			C.RemoveWaitingMegaPacket(MP)
+		Else
+			RemovePendingMegaPacket(MP)
+		Endif
+		
+		' TODO: Add 'MegaPacket' pooling.
+		MP.Reset()
+		
+		Return
 	End
 	
 	' This will bind the socket specified, using this network.
@@ -1253,10 +1468,18 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 				Endif
 			Endif
 			
-			Local Type:= P.ReadShort()
+			Local ExtendedPacket:= ReadBool(P)
 			
+			Local Type:= P.ReadShort()
+		
 			Select Type
 				Case MSG_TYPE_INTERNAL
+					If (ExtendedPacket) Then
+						'Print("WARNING: Improperly formatted extended-packet.")
+						
+						Return MSG_TYPE_ERROR
+					Endif
+					
 					Local InternalType:= ReadInternalMessageHeader(P)
 					
 					Select InternalType
@@ -1351,34 +1574,197 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 							Endif
 							
 							C.CalculatePing(Self)
+						Case INTERNAL_MSG_REQUEST_MEGA_PACKET
+							If (C = Null Or C.Closing) Then
+								Return MSG_TYPE_ERROR
+							End
+							
+							' Arguments based on 'SendMegaPacketRequest':
+							Local MegaID:= P.ReadInt()
+							Local Chunks:= P.ReadShort()
+							
+							If (Chunks > MaxChunksPerMegaPacket) Then
+								' Reject the request; too many chunks.
+								SendMegaPacketRejection(MegaID, MEGA_PACKET_RESPONSE_TOO_MANY_CHUNKS, C)
+								
+								'Return MSG_TYPE_ERROR
+							Else
+								' TODO: Add 'MegaPacket' pooling.
+								Local Mega:= New MegaPacket(Self, MegaID)
+								
+								' Create the number of chunks requested:
+								For Local I:= 0 Until Chunks
+									Mega.Extend()
+								Next
+								
+								' Hold this 'MegaPacket' until the network considers it done.
+								C.AddWaitingMegaPacket(Mega)
+								
+								' Tell the other end we're accepting their 'MegaPacket'.
+								SendMegaPacketConfirmation(Mega, C)
+								
+								If (HasCallback) Then
+									Callback.OnMegaPacketRequestAccepted(Self, Mega)
+								Endif
+							Endif
+						Case INTERNAL_MSG_MEGA_PACKET_RESPONSE
+							If (C = Null Or C.Closing) Then
+								Return MSG_TYPE_ERROR
+							End
+							
+							Local MegaID:= P.ReadInt()
+							
+							' Arguments based on 'SendMegaPacketConfirmation' / 'SendMegaPacketRejection':
+							Local ResponseCode:= ReadPacketExtResponse(P)
+							
+							' Get the 'MegaPacket' in question.
+							Local Mega:= GetPendingMegaPacket(MegaID)
+							
+							If (Mega <> Null) Then
+								If (ResponseCode = MEGA_PACKET_RESPONSE_ACCEPT) Then
+									' Our message was accepted, check the fine print:
+									Local Chunks:= P.ReadShort()
+									
+									Local LinkCount:= Mega.LinkCount
+									
+									If (Chunks > LinkCount) Then
+										SendMegaPacketRejection(MegaID, MEGA_PACKET_RESPONSE_ABORT, C)
+										
+										If (HasCallback) Then
+											Callback.OnMegaPacketRequestAborted(Self, Mega)
+										Endif
+										
+										Return MSG_TYPE_ERROR
+									Elseif (Chunks < LinkCount) Then
+										For Local I:= 1 To (LinkCount - Chunks)
+											Mega.ReleaseTopPacket()
+										Next
+									Endif
+									
+									Mega.Confirmed = True
+									
+									If (HasCallback) Then
+										Callback.OnMegaPacketRequestSucceeded(Self, Mega)
+									Endif
+									
+									For Local I:= 0 Until Mega.LinkCount
+										SendMegaPacketPiece(Mega.Links.Get(I), Mega)
+									Next
+									
+									If (HasCallback) Then
+										Callback.OnMegaPacketSent(Self, Mega)
+									Endif
+								Else
+									' Our message was rejected, clean up:
+									RemovePendingMegaPacket(Mega)
+									
+									If (HasCallback) Then
+										Callback.OnMegaPacketRequestFailed(Self, Mega)
+									Endif
+									
+									' TODO: Add 'MegaPacket' pooling.
+									Mega.Reset() ' Close()
+								Endif
+							Else
+								If (ResponseCode = MEGA_PACKET_RESPONSE_ABORT) Then
+									Mega = C.GetWaitingMegaPacket(MegaID)
+									
+									If (Mega <> Null) Then
+										C.RemoveWaitingMegaPacket(MegaID)
+										
+										If (HasCallback) Then
+											Callback.OnMegaPacketRequestAborted(Self, Mega)
+										Endif
+										
+										' TODO: Add 'MegaPacket' pooling.
+										Mega.Reset() ' Close()
+									Else
+										SendWarningMessage(Type, C)
+										
+										Return MSG_TYPE_ERROR
+									Endif
+								Else
+									SendWarningMessage(Type, C)
+									
+									Return MSG_TYPE_ERROR
+								Endif
+							Endif
 					End Select
 				Default
-					If (C = Null) Then
-						Return MSG_TYPE_ERROR
-					Endif
-					
-					' Check if 'C' is closing, and we're allowed to ignore this message:
-					If (Not ClientMessagesAfterDisconnect And C.Closing) Then
-						Return MSG_TYPE_ERROR
-					Endif
-					
 					Local DataSize:= P.ReadInt()
 					
-					If (HasCallback) Then
-						#Rem
-							Local UserData:= AllocatePacket()
-							
-							' Ensure the size demanded by the inbound packet.
-							UserData.SmartResize(DataSize)
-							
-							P.TransferAmount(UserData, DataSize)
-						#End
-					
-						Local UserData:= P
+					If (ExtendedPacket) Then
+						Local Mega:MegaPacket = Null
+						Local MegaPacketID:= 0
+						Local PacketNumber:= 0
+						Local FinalPacketNumber:= 0
 						
-						Callback.OnReceiveMessage(Self, C, Type, UserData, DataSize)
+						' These follow the 'MegaPacket' class's 'MarkCurrentPacket' routine:
+						MegaPacketID = P.ReadInt()
+						FinalPacketNumber = P.ReadShort()
+						PacketNumber = P.ReadShort()
 						
-						'ReleasePacket(UserData)
+						Mega = C.GetWaitingMegaPacket(MegaPacketID)
+						
+						' Now that we've settled how we're storing the 'MegaPacket',
+						' make sure we're still good, then continue:
+						If (Mega = Null) Then
+							' Tell the other end to abort; not an accepted 'MegaPacket'
+							AbortMegaPacket(C, MegaPacketID)
+							
+							Return MSG_TYPE_ERROR
+						Else
+							' Try retrieve a 'Packet' for this chunk:
+							Local DataSegment:Packet = Mega.Links.Get(PacketNumber)
+							
+							' Make sure we can get the proper packet-stream:
+							If (DataSegment = Null) Then
+								' Something went wrong, stop handling this.
+								AbortMegaPacket(C, Mega, True)
+								
+								Return MSG_TYPE_ERROR
+							Endif
+							
+							#If CONFIG = "debug"
+								If (DataSize > DataSegment.Data.Length) Then
+									' Release the improper 'Packet' we retrieved
+									ReleasePacket(DataSegment)
+									
+									' This doesn't look right, tell the other end to stop.
+									AbortMegaPacket(C, MegaPacketID)
+									
+									' Just to make sure they get it, send a warning.
+									SendWarningMessage(Type, C)
+									
+									Return MSG_TYPE_ERROR
+								Endif
+							#End
+							
+							P.ReadAll(DataSegment.Data, DataSegment.Offset, DataSize)
+							P.SetLength(DataSize); P.Seek() ' 0
+							
+							' Check if the message is complete:
+							If (Mega.LinkCount >= FinalPacketNumber) Then ' =
+								If (HasCallback) Then
+									Callback.OnMegaPacketFinished(Self, Mega)
+								Endif
+								
+								' Make sure to seek back to the beginning, just in case.
+								Mega.Seek(0)
+								
+								' Read from our final message.
+								ReadMessageBody(Mega, C, Type, Mega.Length)
+								
+								C.RemoveWaitingMegaPacket(Mega)
+							
+								' TODO: Add 'MegaPacket' pooling.
+								Mega.Reset()
+							Endif
+						Endif
+					Else
+						If (Not ReadMessageBody(P, C, Type, DataSize, Address)) Then
+							Return MSG_TYPE_ERROR
+						Endif
 					Endif
 			End Select
 			
@@ -1392,6 +1778,44 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		End
 		
 		Return MSG_TYPE_ERROR
+	End
+	
+	Method ReadMessageBody:Bool(P:Stream, C:Client, Type:MessageType, DataSize:Int, Address:NetworkAddress)
+		If (C = Null) Then
+			Return False
+		Endif
+		
+		' Check if 'C' is closing, and we're allowed to ignore this message:
+		If (Not ClientMessagesAfterDisconnect And C.Closing) Then
+			Return False
+		Endif
+		
+		If (HasCallback) Then
+			#Rem
+				Local UserData:= AllocatePacket()
+				
+				' Ensure the size demanded by the inbound packet.
+				UserData.SmartResize(DataSize)
+				
+				P.TransferAmount(UserData, DataSize)
+			#End
+		
+			Local UserData:= P
+			
+			Callback.OnReceiveMessage(Self, C, Type, UserData, DataSize)
+			
+			'ReleasePacket(UserData)
+		Endif
+		
+		' Return the default response.
+		Return True
+	End
+	
+	' Provided for convenience.
+	Method ReadMessageBody:Void(P:Stream, C:Client, Type:MessageType, DataSize:Int)
+		ReadMessageBody(P, C, Type, DataSize, C.Address)
+		
+		Return 
 	End
 	
 	' If the 'Input' argument is 'Null', it will be passively ignored.
@@ -1539,6 +1963,83 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
+	' This should only be used to initiate sending a 'MegaPacket', not to confirm one:
+	Method SendMegaPacketRequest:Void(MP:MegaPacket, C:Client, Reliable:Bool=True, Async:Bool=True)
+		Local P:= AllocatePacket()
+		
+		WriteInternalMessageHeader(P, INTERNAL_MSG_REQUEST_MEGA_PACKET)
+		
+		P.WriteInt(MP.ID)
+		P.WriteShort(MP.LinkCount)
+		
+		Send(P, C, MSG_TYPE_INTERNAL, Reliable, Async)
+		
+		ReleasePacket(P)
+		
+		Return
+	End
+	
+	Method SendMegaPacketRequest:Void(MP:MegaPacket, Reliable:Bool=True, Async:Bool=True)
+		Local P:= AllocatePacket()
+		
+		WriteInternalMessageHeader(P, INTERNAL_MSG_REQUEST_MEGA_PACKET)
+		
+		P.WriteInt(MP.ID)
+		P.WriteShort(MP.LinkCount)
+		
+		Send(P, MSG_TYPE_INTERNAL, Reliable, Async)
+		
+		ReleasePacket(P)
+		
+		Return
+	End
+	
+	' This should only be used to confirm a 'MegaPacket', not to request one.
+	Method SendMegaPacketConfirmation:Void(MP:MegaPacket, C:Client, Reliable:Bool=True, Async:Bool=True)
+		Local P:= AllocatePacket()
+		
+		WriteInternalMessageHeader(P, INTERNAL_MSG_MEGA_PACKET_RESPONSE)
+		
+		P.WriteInt(MP.ID)
+		
+		WritePacketExtResponse(P, MEGA_PACKET_RESPONSE_ACCEPT)
+		
+		P.WriteShort(Min(MP.LinkCount, MaxChunksPerMegaPacket))
+		
+		Send(P, C, MSG_TYPE_INTERNAL, Reliable, Async)
+		
+		ReleasePacket(P)
+		
+		Return
+	End
+	
+	Method SendMegaPacketRejection:Void(ID:ExtPacketID, Reason:PacketExtResponse, C:Client, Reliable:Bool=True, Async:Bool=True)
+		Local P:= AllocatePacket()
+		
+		WriteInternalMessageHeader(P, INTERNAL_MSG_MEGA_PACKET_RESPONSE)
+		
+		P.WriteInt(ID)
+		
+		WritePacketExtResponse(P, Reason)
+		
+		Send(P, C, MSG_TYPE_INTERNAL, Reliable, Async)
+		
+		ReleasePacket(P)
+		
+		Return
+	End
+	
+	' This acts as a semi-automated send-routine for 'MessagePacket' "pieces".
+	Method SendMegaPacketPiece:Void(P:Packet, MP:MegaPacket)
+		If (MP.Destination = Null) Then
+			Send(P, MP.Type, True, True, True)
+		Else
+			Send(P, MP.Destination, MP.Type, True, True, True)
+		Endif
+		
+		Return
+	End
+	
 	Method SendPacketConfirmation:Void(C:Client, ID:PacketID, Async:Bool=False) ' True
 		Local P:= AllocatePacket()
 		
@@ -1589,6 +2090,16 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	' Methods (Private):
 	Private
+	
+	' This may be used to retrieve the next mega-packet identifier.
+	' This will increment an internal ID-counter; use with caution.
+	Method GetNextMegaPacketID:ExtPacketID()
+		Local ID:= NextMegaPacketID
+		
+		NextMegaPacketID += 1
+		
+		Return ID
+	End
 	
 	' I/O related:
 	Method SendPing:Void(C:Client, Async:Bool=False) ' True
@@ -1741,6 +2252,16 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	' The maximum ping a 'Client' can have before being released.
 	Field MaxPing:NetworkPing
 	
+	#Rem
+		The maximum number of "mega-packet" chunks allowed.
+		Chunk sizes depend on 'PacketSize' on the other end.
+		
+		In other words, this is variable, but it should never
+		be larger than the other side's 'PacketSize'.
+	#End
+	
+	Field MaxChunksPerMegaPacket:Int
+	
 	' Booleans / Flags:
 	
 	' This specifies if normal messages should be accepted
@@ -1749,9 +2270,6 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	' Fields (Protected):
 	Protected
-	
-	' A pool of 'Packets'; used for async I/O.
-	Field PacketGenerator:BasicPacketPool
 	
 	' A pool of 'ReliablePackets', used for reliable packet management.
 	' This is only available when using UDP as the underlying protocol.
@@ -1762,6 +2280,9 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	' A container of reliable packets in transit.
 	Field ReliablePackets:Stack<ReliablePacket>
+	
+	' A container of pending 'MegaPackets'.
+	Field PendingMegaPackets:Stack<MegaPacket>
 	
 	' This acts as the primary connection-socket.
 	Field Connection:Socket
@@ -1778,6 +2299,9 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	' If TCP is used, then reliable packets will be handled normally.
 	Field NextReliablePacketID:PacketID = INITIAL_PACKET_ID
 	
+	' A counter used to keep track of "mega-packets".
+	Field NextMegaPacketID:ExtPacketID = INITIAL_MEGA_PACKET_ID
+	
 	' This represents the underlying protocol of this network.
 	Field _SocketType:ProtocolType = SOCKET_TYPE_UDP
 	
@@ -1788,6 +2312,14 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	
 	' This may be used to toggle accepting multiple clients.
 	Field _MultiConnection:Bool = Default_MultiConnection
+	
+	Public
+	
+	' Fields (Private):
+	Private
+	
+	' A pool of 'Packets'; used for async I/O.
+	Field PacketGenerator:BasicPacketPool
 	
 	Public
 End

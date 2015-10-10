@@ -5,6 +5,7 @@ Public
 ' Friends:
 Friend networking.engine
 Friend networking.packet
+Friend networking.megapacket
 
 ' Imports (Public):
 
@@ -17,7 +18,9 @@ Import eternity
 ' Imports (Private):
 Private
 
+' Internal:
 Import socket
+Import megapacket
 
 Public
 
@@ -53,6 +56,12 @@ Class Client
 			Endif
 			
 			ResetPacketTimer()
+		Endif
+		
+		If (WaitingMegaPackets = Null) Then
+			WaitingMegaPackets = New Stack<MegaPacket>()
+		Else
+			WaitingMegaPackets.Clear()
 		Endif
 		
 		ResetPingTimer()
@@ -162,6 +171,43 @@ Class Client
 	
 	' Methods (Private):
 	Private
+	
+	Method AddWaitingMegaPacket:Void(MP:MegaPacket)
+		WaitingMegaPackets.Push(MP)
+		
+		Return
+	End
+	
+	Method RemoveWaitingMegaPacket:Void(MP:MegaPacket)
+		WaitingMegaPackets.RemoveEach(MP)
+		
+		Return
+	End
+	
+	Method RemoveWaitingMegaPacket:Void(ID:ExtPacketID)
+		Local MP:= GetWaitingMegaPacket(ID)
+		
+		If (MP <> Null) Then
+			RemoveWaitingMegaPacket(MP)
+		Endif
+		
+		Return
+	End
+	
+	Method GetWaitingMegaPacket:MegaPacket(ID:ExtPacketID)
+		For Local MP:= Eachin WaitingMegaPackets
+			If (MP.ID = ID) Then
+				Return MP
+			Endif
+		Next
+		
+		' Return the default response.
+		Return Null
+	End
+	
+	Method HasWaitingMegaPacket:Bool(ID:ExtPacketID)
+		Return (GetWaitingMegaPacket(ID) <> Null)
+	End
 	
 	Method ResetPacketTimer:TimePoint()
 		PacketReleaseTimer = Eternity.GetTime()
@@ -289,8 +335,10 @@ Class Client
 	
 	' Packet management related:
 	Field ConfirmedPackets:Deque<PacketID> ' IntDeque
+	Field WaitingMegaPackets:Stack<MegaPacket>
 	
 	Field PacketReleaseTimer:TimePoint
+	
 	Field _PingTimer:TimePoint
 	
 	' Booleans / Flags:

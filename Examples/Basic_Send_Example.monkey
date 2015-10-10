@@ -12,7 +12,9 @@ Public
 
 ' Imports:
 Import networking
-Import stringutil
+Import networking.megapacket
+
+'Import stringutil
 
 #If Not USE_MOJOWRAPPER
 	Import mojo
@@ -74,15 +76,23 @@ Class TestApplication Extends App Implements NetworkListener Final
 						SendToServer(C)
 				#If Not USE_MOJOWRAPPER
 					Elseif (KeyDown(KEY_E)) Then
-						SendToServer(C, QuickSend_Reliable, True) ' False
+						SendToServer(C, QuickSend_Reliable, False) ' True
 					Endif
 					
 					If (KeyHit(KEY_R)) Then
 						SendToClients()
 					Elseif (KeyDown(KEY_T)) Then
-						'DebugStop()
-						
 						SendToClients(QuickSend_Reliable, False)
+					Endif
+					
+					If (KeyHit(KEY_Y)) Then
+						Print("Sending out a mega-packet...")
+						
+						Local MP:= New MegaPacket(Server)
+						
+						MP.WriteLine("This is a ~qmega-packet~q. They can be as large as we want, but they require extra time, resources, and bandwidth.")
+						
+						Server.Send()
 					Endif
 				#End
 			Endif
@@ -175,7 +185,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 			Elseif (Network = Server) Then
 				Print("Server socket bound.")
 				
-				For Local I:= 1 To 2 ' 1 ' 4 ' 8
+				For Local I:= 1 To 1 ' 2 ' 4 ' 8
 					Local Client:= New NetworkEngine()
 					
 					Client.SetCallback(Self)
@@ -249,6 +259,51 @@ Class TestApplication Extends App Implements NetworkListener Final
 		Else
 			Print("Server disconnected.")
 		Endif
+		
+		Return
+	End
+	
+	' 'MegaPacket' callback layer:
+	
+	' This is called when a remote 'MegaPacket' request is accepted on this end.
+	Method OnMegaPacketRequestAccepted:Void(Network:NetworkEngine, MP:MegaPacket)
+		Print("Accepted a mega-packet coming from an outside node.")
+		
+		Return
+	End
+	
+	' This is called when a 'MegaPacket' request your end sent is accepted.
+	Method OnMegaPacketRequestSucceeded:Void(Network:NetworkEngine, MP:MegaPacket)
+		Print("The other end accepted our mega-packet request.")
+		
+		Return
+	End
+	
+	' This is called when a pending 'MegaPacket' has been rejected by the other end.
+	Method OnMegaPacketRequestFailed:Void(Network:NetworkEngine, MP:MegaPacket)
+		Print("The other end rejected our mega-packet.")
+		
+		Return
+	End
+	
+	' This is called on both ends, and signifies a failure by means of an "abort".
+	Method OnMegaPacketRequestAborted:Void(Network:NetworkEngine, MP:MegaPacket)
+		Print("Mega-packet cut off too early.")
+		
+		Return
+	End
+	
+	' This is called when a 'MegaPacket' is finished. (Fully built from the data we received)
+	' This will be called before 'ReadMessageBody' is executed.
+	Method OnMegaPacketFinished:Void(Network:NetworkEngine, MP:MegaPacket)
+		Print("Finished receiving a mega-packet.")
+		
+		Return
+	End
+	
+	' This is called when a 'MegaPacket' is done being sent.
+	Method OnMegaPacketSent:Void(Network:NetworkEngine, MP:MegaPacket)
+		Print("Finished sending our mega-packet.")
 		
 		Return
 	End
