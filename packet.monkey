@@ -130,7 +130,7 @@ Class ReliablePacket Extends Packet Final
 	End
 	
 	Method Update:Void(Network:NetworkEngine)
-		If (Eternity.TimeDifference(ResendTimer) >= Network.PacketResendTime) Then
+		If (Eternity.TimeDifference(ResendTimer) >= ((Network.PacketResendTime + Destination.Ping) / 2)) Then
 			Resend(Network)
 		Endif
 		

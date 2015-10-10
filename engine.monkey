@@ -81,9 +81,10 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Const INTERNAL_MSG_CONNECT:= 0
 	Const INTERNAL_MSG_WARNING:= 1
 	Const INTERNAL_MSG_DISCONNECT:= 2
-	Const INTERNAL_MSG_PACKET_CONFIRM:= 3
-	Const INTERNAL_MSG_PING:= 4
-	Const INTERNAL_MSG_PONG:= 5
+	Const INTERNAL_MSG_REQUEST_DISCONNECTION:= 3
+	Const INTERNAL_MSG_PACKET_CONFIRM:= 4
+	Const INTERNAL_MSG_PING:= 5
+	Const INTERNAL_MSG_PONG:= 6
 	
 	' Packet management related:
 	Const INITIAL_PACKET_ID:PacketID = 1
@@ -98,7 +99,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Const Default_PacketPoolSize:= 4
 	
 	Const Default_PacketReleaseTime:Duration = 1500 ' Milliseconds.
-	Const Default_PacketResendTime:Duration = 40 ' 100 ' Milliseconds.
+	Const Default_PacketResendTime:Duration = 100 ' 40 ' Milliseconds.
 	Const Default_PingFrequency:Duration = 1000 ' Milliseconds.
 	
 	Const Default_MaxPing:NetworkPing = 4000
@@ -198,6 +199,29 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Public
 	
 	' Destructor(s) (Public):
+	
+	#Rem
+		This command manually closes this network.
+		
+		The network will automatically send remote connections a
+		final unreliable message describing this action.
+		
+		In the case of TCP, this will very likely make it
+		to the other end, disconnecting very gracefully.
+		
+		When using UDP, this message is somewhat
+		unlikely to make it to the destination(s).
+		
+		If this description message ('INTERNAL_MSG_DISCONNECT')
+		is not received, this client/host will timeout on the other end(s).
+		
+		This means that disconnection will happen regardless, but the
+		elegance of this action is unlikely to be preserved. (TCP differences aside)
+		
+		To disconnect via a request, and in worst
+		case scenarios, a timeout, use 'CloseAsync'.
+	#End
+	
 	Method Close:Void()
 		If (Not Open) Then ' Closed
 			Return
@@ -208,10 +232,10 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 				Callback.OnDisconnected(Self)
 			Endif
 			
-			Connection.Close()
+			' Send a final (Unreliable) notice, even if it isn't received.
+			SendDisconnectionNotice()
 			
-			Connection = Null
-			
+			' Close any client handles we may have:
 			If (Clients <> Null) Then
 				If (Not IsClient) Then
 					For Local C:= Eachin Clients
@@ -219,17 +243,72 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 					Next
 				Endif
 				
+				' Clear the 'Clients' container.
 				Clients.Clear()
 				
-				Clients = Null
+				'Clients = Null
 			Endif
 			
+			' Close our main connection.
+			Connection.Close(); Connection = Null
+			
+			' Clear any system-packet handles.
 			SystemPackets.Clear()
 			
+			' Deinitialize any remaining reliable packets.
 			DeinitReliablePackets()
 		Endif
 		
+		' Reset our multi-connection setting.
 		MultiConnection = Default_MultiConnection
+		
+		' Stop network termination.
+		Terminating = False
+		
+		Return
+	End
+	
+	#Rem
+		This command provides a means of gracefully
+		disconnecting from a remote network.
+		
+		To manually disconnect from a network, use 'Close'.
+		
+		For clients, this is done through a reliable disconnection notice
+		('INTERNAL_MSG_REQUEST_DISCONNECTION'), and assuming closing status.
+		
+		The notice will be sent, then the usual behavior of 'Closing' will be
+		applied; limited message acceptance, eventual timeout/disconnection, etc.
+		
+		Ideally, we'd get a message back, and from there, call 'Close'.
+		
+		For hosts, this will disconnect every client formally. It will then
+		use the 'Terminating' flag to check if all clients have disconnected.
+		
+		Once they have, the 'Close' command will be called automatically.
+	#End
+	
+	Method CloseAsync:Void()
+		If (Not Open) Then ' Closed
+			Return
+		Endif
+		
+		If (TCPSocket) Then
+			Close()
+			
+			Return
+		Endif
+		
+		If (IsClient) Then
+			'Disconnect(Remote)
+			SendDisconnectionNotice(True, True)
+			
+			Remote.Closing = True
+		Else
+			DisconnectAll()
+		Endif
+		
+		Terminating = True
 		
 		Return
 	End
@@ -309,6 +388,12 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 			Return
 		Endif
 		
+		If (Not IsClient And Terminating And Clients.IsEmpty()) Then
+			Close()
+			
+			Return
+		Endif
+		
 		UpdateClients()
 		
 		If (UDPSocket) Then ' (ReliablePackets <> Null)
@@ -366,6 +451,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
+	' This overload sends to every connected 'Client'. (Sends to the host for clients)
 	Method Send:Void(P:Packet, Type:MessageType, Reliable:Bool=False, Async:Bool=True)
 		If (UDPSocket And Reliable) Then
 			For Local C:= Eachin Clients
@@ -380,6 +466,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
+	' This overload sends directly to the 'Client' specified.
 	Method Send:Void(P:Packet, C:Client, Type:MessageType, Reliable:Bool=False, Async:Bool=True)
 		If (UDPSocket And Reliable) Then
 			Send(BuildReliableMessage(P, Type, C), Async)
@@ -429,6 +516,18 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		
 		' Mark this 'Client' accordingly.
 		C.Closing = True
+		
+		Return
+	End
+	
+	' This will disconnect every connected client from a host.
+	Method DisconnectAll:Void()
+		SendDisconnectToAll()
+		
+		' Mark every 'Client' as closing.
+		For Local C:= Eachin Clients
+			C.Closing = True
+		Next
 		
 		Return
 	End
@@ -491,6 +590,42 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	#Rem
+		This overload uses automated destination resolution.
+		
+		To put it simply, this will send to the host for
+		clients, and send to every client for a server.
+		
+		By default, like 'SendForceDisconnect', this is not a reliable message,
+		and may need further management after calling.
+		
+		If 'Reliable' is enabled, this will send a 'INTERNAL_MSG_REQUEST_DISCONNECTION' message.
+		If it's disabled, 'INTERNAL_MSG_DISCONNECT' will be sent.
+	#End
+	
+	Method SendDisconnectionNotice:Void(Reliable:Bool=False, Async:Bool=False)
+		' Local variable(s):
+		
+		' Allocate a temporary packet.
+		Local P:= AllocatePacket()
+		
+		' Write the data-segment (Internal message-data):
+		If (Reliable) Then
+			WriteInternalMessageHeader(P, INTERNAL_MSG_REQUEST_DISCONNECTION)
+		Else
+			WriteInternalMessageHeader(P, INTERNAL_MSG_DISCONNECT)
+		Endif
+		
+		' Send to the 'Client' specified, blocking until
+		' the desired operation has been completed.
+		Send(P, MSG_TYPE_INTERNAL, False, False)
+		
+		' Release our temporary packet.
+		ReleasePacket(P)
+		
+		Return
+	End
+	
+	#Rem
 		ATTENTION: This routine does not perfectly disconnect 'Clients' on its own.
 		
 		This command should only be called by users for debugging purposes,
@@ -512,6 +647,28 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		' Send to the 'Client' specified, blocking until
 		' the desired operation has been completed.
 		Send(P, C, MSG_TYPE_INTERNAL, True, False)
+		
+		' Release our temporary packet.
+		ReleasePacket(P)
+		
+		Return
+	End
+	
+	' This will send reliable disconnection messages to all connected clients.
+	' The rules applied to 'SendDisconnect' apply here, the
+	' difference being that this should only be called by hosts.
+	Method SendDisconnectToAll:Void()
+		' Local variable(s):
+		
+		' Allocate a temporary packet.
+		Local P:= AllocatePacket()
+		
+		' Write the data-segment (Internal message-data):
+		WriteInternalMessageHeader(P, INTERNAL_MSG_DISCONNECT)
+		
+		' Send to the 'Client' specified, blocking until
+		' the desired operation has been completed.
+		Send(P, MSG_TYPE_INTERNAL, True, False)
 		
 		' Release our temporary packet.
 		ReleasePacket(P)
@@ -1146,7 +1303,29 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 						Case INTERNAL_MSG_DISCONNECT
 							' Lazy, but it gets the job done:
 							If (IsClient) Then
+								' The host told us to close
+								' manually, follow the order.
 								Close()
+							Else
+								If (C = Null) Then
+									Return MSG_TYPE_ERROR
+								Endif
+								
+								' A client we previously requested/confirmed to close has closed,
+								' we were able to receive their final message, release their handle.
+								ReleaseClient(C) ' ForceDisconnect(C)
+							Endif
+						
+						' Due to the nature of a client's response to this message,
+						' you may not send a response using this message exact type.
+						' (Use 'INTERNAL_MSG_DISCONNECT'; call 'Disconnect')
+						Case INTERNAL_MSG_REQUEST_DISCONNECTION
+							If (Not IsClient) Then
+								' Send a reliable message confirming the disconnection.
+								Disconnect(C)
+							Else
+								' The host has requested that we close formally.
+								CloseAsync()
 							Endif
 						Case INTERNAL_MSG_PACKET_CONFIRM
 							If (C = Null Or TCPSocket) Then
@@ -1157,13 +1336,13 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 							
 							ReleaseReliablePacket(PID)
 						Case INTERNAL_MSG_PING
+							If (C = Null Or C.Closing) Then
+								Return MSG_TYPE_ERROR
+							Endif
+							
 							If (IsClient) Then
 								SendPong()
 							Else
-								If (C = Null Or C.Closing) Then
-									Return MSG_TYPE_ERROR
-								Endif
-								
 								SendPong(C)
 							Endif
 						Case INTERNAL_MSG_PONG
@@ -1603,6 +1782,8 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Field _SocketType:ProtocolType = SOCKET_TYPE_UDP
 	
 	' Booleans / Flags:
+	Field Terminating:Bool
+	
 	Field _IsClient:Bool
 	
 	' This may be used to toggle accepting multiple clients.
