@@ -24,8 +24,8 @@ Class TestApplication Extends App Implements NetworkListener Final
 	' Constant variable(s):
 	Const PORT:= 5029
 	
-	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
-	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
+	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
+	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
 	
 	Const QuickSend_Reliable:Bool = False ' True
 	
@@ -100,7 +100,15 @@ Class TestApplication Extends App Implements NetworkListener Final
 			
 			If (KeyHit(KEY_P)) Then
 				For Local C:= Eachin Server
-					Print("PING: " + C.Ping)
+					Print("Client ping: " + C.Ping)
+				Next
+			Endif
+			
+			If (KeyHit(KEY_H)) Then
+				For Local ClientNetwork:= Eachin ClientNetworks
+					For Local C:= Eachin ClientNetwork
+						Print("Ping to host: " + C.Ping)
+					Next
 				Next
 			Endif
 			

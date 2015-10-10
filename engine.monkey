@@ -29,7 +29,7 @@ Public
 ' Aliases:
 Alias NetworkPing = Int ' UShort
 Alias MessageType = Int ' Short
-Alias SockType = Int
+Alias ProtocolType = Int
 Alias PacketID = Int ' UInt
 
 ' Interfaces:
@@ -157,7 +157,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
-	Method Init:Void(Protocol:SockType, IsClient:Bool)
+	Method Init:Void(Protocol:ProtocolType, IsClient:Bool)
 		Self.SocketType = Protocol
 		Self.IsClient = IsClient
 		
@@ -258,7 +258,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
-	Method Host:Bool(Port:Int, Async:Bool=False, Protocol:SockType=SOCKET_TYPE_UDP, MultiConnection:Bool=Default_MultiConnection, Hostname:String="")
+	Method Host:Bool(Port:Int, Async:Bool=False, Protocol:ProtocolType=SOCKET_TYPE_UDP, MultiConnection:Bool=Default_MultiConnection, Hostname:String="")
 		Init(Protocol, False)
 		
 		Self.MultiConnection = MultiConnection
@@ -273,7 +273,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return True
 	End
 	
-	Method Connect:Bool(Address:NetworkAddress, Async:Bool=False, Protocol:SockType=SOCKET_TYPE_UDP)
+	Method Connect:Bool(Address:NetworkAddress, Async:Bool=False, Protocol:ProtocolType=SOCKET_TYPE_UDP)
 		Init(Protocol, True)
 		
 		Clients.AddFirst(New Client(Address, Connection, (Protocol = SOCKET_TYPE_UDP)))
@@ -296,7 +296,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return True
 	End
 	
-	Method Connect:Bool(Host:String, Port:Int, Async:Bool=False, Protocol:SockType=SOCKET_TYPE_UDP)
+	Method Connect:Bool(Host:String, Port:Int, Async:Bool=False, Protocol:ProtocolType=SOCKET_TYPE_UDP)
 		Return Connect(New NetworkAddress(Host, Port), Async, Protocol)
 	End
 	
@@ -323,21 +323,29 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Method UpdateClients:Void()
 		If (Not IsClient) Then
 			For Local C:= Eachin Clients
-				If (UDPSocket) Then
-					If (C.Pinging And C.ProjectedPing(Self) > MaxPing) Then
-						ReleaseClient(C)
-						
-						Continue
-					Endif
-				Endif
-				
 				C.Update(Self)
+				
+				If (TimedOut(C)) Then
+					ReleaseClient(C)
+					
+					Continue
+				Endif
 			Next
 		Else
 			Remote.Update(Self)
+			
+			If (TimedOut(Remote)) Then
+				Close()
+				
+				Return
+			Endif
 		Endif
 		
 		Return
+	End
+	
+	Method TimedOut:Bool(C:Client)
+		Return (UDPSocket And (C.Pinging And C.ProjectedPing(Self) > MaxPing))
 	End
 	
 	' I/O related:
@@ -1418,7 +1426,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	End
 	
 	Method SendPong:Void(C:Client, Async:Bool=False)
-		SendTitleMessage(INTERNAL_MSG_PING, C, True, Async)
+		SendTitleMessage(INTERNAL_MSG_PONG, C, True, Async)
 		
 		Return
 	End
@@ -1437,7 +1445,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return Self.Connection
 	End
 	
-	Method SocketType:SockType() Property
+	Method SocketType:ProtocolType() Property
 		Return Self._SocketType
 	End
 	
@@ -1532,7 +1540,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		Return
 	End
 	
-	Method SocketType:Void(Input:SockType) Property
+	Method SocketType:Void(Input:ProtocolType) Property
 		Self._SocketType = Input
 		
 		Return
@@ -1592,7 +1600,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Field NextReliablePacketID:PacketID = INITIAL_PACKET_ID
 	
 	' This represents the underlying protocol of this network.
-	Field _SocketType:SockType = SOCKET_TYPE_UDP
+	Field _SocketType:ProtocolType = SOCKET_TYPE_UDP
 	
 	' Booleans / Flags:
 	Field _IsClient:Bool
