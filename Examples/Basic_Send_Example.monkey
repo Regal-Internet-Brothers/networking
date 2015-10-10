@@ -32,6 +32,9 @@ Class TestApplication Extends App Implements NetworkListener Final
 	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
 	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
 	
+	Const MESSAGE_TYPE_NORMAL:= NetworkEngine.MSG_TYPE_CUSTOM
+	Const MESSAGE_TYPE_MEGA:= (MESSAGE_TYPE_NORMAL+1)
+	
 	Const QuickSend_Reliable:Bool = False ' True
 	
 	' Constructor(s):
@@ -91,8 +94,11 @@ Class TestApplication Extends App Implements NetworkListener Final
 						Local MP:= New MegaPacket(Server)
 						
 						MP.WriteLine("This is a ~qmega-packet~q. They can be as large as we want, but they require extra time, resources, and bandwidth.")
+						MP.WriteLine("This is a line.")
+						MP.WriteLine("This is another line.")
+						MP.WriteLine("This is the final line.")
 						
-						Server.Send()
+						Server.Send(MP, MESSAGE_TYPE_MEGA)
 					Endif
 				#End
 			Endif
@@ -137,7 +143,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 	Method SendToServer:Void(C:NetworkEngine, Reliable:Bool=True, Async:Bool=True)
 		ClientMsgCount += 1
 		
-		C.Send(New Packet("Message from the client: " + ClientMsgCount), 1, Reliable, Async) ' True
+		C.Send(New Packet("Message from the client: " + ClientMsgCount), MESSAGE_TYPE_NORMAL, Reliable, Async) ' True
 		
 		Return
 	End
@@ -145,7 +151,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 	Method SendToClients:Void(Reliable:Bool=True, Async:Bool=False)
 		ServerMsgCount += 1
 		
-		Server.Send(New Packet("Message from the host: " + ServerMsgCount), 1, Reliable, Async)
+		Server.Send(New Packet("Message from the host: " + ServerMsgCount), MESSAGE_TYPE_NORMAL, Reliable, Async)
 		
 		Return
 	End
@@ -203,12 +209,21 @@ Class TestApplication Extends App Implements NetworkListener Final
 	End
 	
 	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Stream, MessageSize:Int)
-		Print(Message.ReadString(MessageSize))
+		Select Type
+			Case MESSAGE_TYPE_NORMAL
+				Print(Message.ReadString(MessageSize))
+			Case MESSAGE_TYPE_MEGA
+				While (Not Message.Eof)
+					Print("MEGA: " + Message.ReadLine())
+				Wend
+				
+				Print("If it wasn't for the type, we wouldn't even be able to tell.")
+		End Select
 		
 		#Rem
-		If (Network = Server) Then
-			SendToClients()
-		Endif
+			If (Network = Server) Then
+				SendToClients()
+			Endif
 		#End
 		
 		Return

@@ -607,6 +607,8 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 		MP.Destination = Null
 		MP.Type = Type
 		
+		MP.MarkPackets()
+		
 		AddPendingMegaPacket(MP)
 		
 		SendMegaPacketRequest(MP)
@@ -617,6 +619,8 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	Method Send:Void(MP:MegaPacket, C:Client, Type:MessageType)
 		MP.Destination = C
 		MP.Type = Type
+		
+		MP.MarkPackets()
 		
 		AddPendingMegaPacket(MP)
 		
@@ -836,9 +840,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 			WriteBool(Output, False)
 		Endif
 		
-		WriteBool(Output, ExtendedPacket)
-		
-		WriteMessage(Output, Type, P, DefaultSize)
+		WriteMessage(Output, Type, P, ExtendedPacket, DefaultSize)
 		
 		Return Output
 	End
@@ -853,9 +855,7 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 			WritePacketID(RP, RP.ID)
 		Endif
 		
-		WriteBool(RP, ExtendedPacket)
-		
-		WriteMessage(RP, Type, Data)
+		WriteMessage(RP, Type, Data, ExtendedPacket)
 		
 		Return
 	End
@@ -1693,16 +1693,23 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 				Default
 					Local DataSize:= P.ReadInt()
 					
+					Local DataSegmentOrigin:= P.Position
+					
 					If (ExtendedPacket) Then
 						Local Mega:MegaPacket = Null
 						Local MegaPacketID:= 0
 						Local PacketNumber:= 0
 						Local FinalPacketNumber:= 0
 						
+						' Extension segment (Data-segment "header"):
+						
 						' These follow the 'MegaPacket' class's 'MarkCurrentPacket' routine:
 						MegaPacketID = P.ReadInt()
 						FinalPacketNumber = P.ReadShort()
 						PacketNumber = P.ReadShort()
+						
+						' Calculate the proper data-size, now that we've read our extension-data.
+						DataSize -= (P.Position-DataSegmentOrigin)
 						
 						Mega = C.GetWaitingMegaPacket(MegaPacketID)
 						
@@ -1741,7 +1748,8 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 							#End
 							
 							P.ReadAll(DataSegment.Data, DataSegment.Offset, DataSize)
-							P.SetLength(DataSize); P.Seek() ' 0
+							
+							DataSegment.SetLength(DataSize); DataSegment.Seek() ' 0
 							
 							' Check if the message is complete:
 							If (Mega.LinkCount >= FinalPacketNumber) Then ' =
@@ -1821,7 +1829,9 @@ Class NetworkEngine Implements IOnBindComplete, IOnAcceptComplete, IOnConnectCom
 	' If the 'Input' argument is 'Null', it will be passively ignored.
 	' The 'DefaultSize' argument is used if 'Input' is 'Null'.
 	' If we are writing an internal message, the data-segment length will not be serialized.
-	Method WriteMessage:Void(Output:Packet, Type:MessageType, Input:Packet=Null, DefaultSize:Int=0)
+	Method WriteMessage:Void(Output:Packet, Type:MessageType, Input:Packet=Null, ExtendedPacket:Bool=False, DefaultSize:Int=0)
+		WriteBool(Output, ExtendedPacket)
+		
 		Output.WriteShort(Type)
 		
 		Select Type

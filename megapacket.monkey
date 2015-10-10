@@ -170,7 +170,7 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 			
 			P.Seek(0)
 			
-			MarkCurrentPacket(I, LinkCount)
+			MarkCurrentPacket(I, LinkCount-1)
 			
 			P.Seek(CurrentPos)
 		Next
