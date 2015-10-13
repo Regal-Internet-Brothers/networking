@@ -161,7 +161,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	'Const MEGA_PACKET_ACTION_REQUEST_DEBUG_NAME:PacketExtAction = 4
 	
 	' Defaults:
-	Const Default_PacketSize:= 4096 ' 8192
+	Const Default_PacketSize:= 8*1024 ' 4096 ' 8192
 	Const Default_PacketPoolSize:= 4
 	
 	Const Default_PacketReleaseTime:Duration = 1500 ' Milliseconds.
@@ -947,8 +947,6 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	Method AbortMegaPacket:Void(C:Client, ID:PacketID, Reason:PacketExtResponse=MEGA_PACKET_RESPONSE_ABORT)
-		DebugStop()
-		
 		' Local variable(s):
 		Local MP:= C.GetWaitingMegaPacket(ID)
 		
@@ -967,8 +965,6 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	Method AbortMegaPacket:Void(MP:MegaPacket, FromClient:Bool, Reason:PacketExtResponse=MEGA_PACKET_RESPONSE_ABORT)
-		DebugStop()
-		
 		SendMegaPacketRejection(MP, Reason, FromClient)
 		
 		If (HasCallback) Then
@@ -1405,8 +1401,6 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 				Case MSG_TYPE_INTERNAL
 					Local InternalType:= ReadInternalMessageHeader(P)
 					
-					'Print("InternalType: " + InternalType)
-					
 					Select InternalType
 						Case INTERNAL_MSG_CONNECT
 							If (IsClient) Then
@@ -1612,8 +1606,6 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 							Endif
 						' Multi-way actions:
 						Case INTERNAL_MSG_MEGA_PACKET_ACTION
-							'DebugStop()
-							
 							' Based on 'SendStandaloneMegaPacketAction' and similar:
 							Local MegaID:= ReadPacketID(P)
 							Local Action:= ReadPacketExtAction(P)
@@ -1801,13 +1793,9 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 				Endif
 			#End
 			
-			'DebugStop()
-			
 			P.Read(DataSegment.Data, DataSegment.Offset, DataSize)
 			
 			DataSegment.SetLength(DataSize); DataSegment.Seek() ' 0
-			
-			Print(Mega.PacketsReceived + " / " + PacketCount)
 			
 			' Check if the message is complete:
 			If (Mega.PacketsReceived >= PacketCount) Then ' =
@@ -1821,7 +1809,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 				' Read from our final message.
 				ReadMessageBody(Mega, C, Type, Mega.Length)
 				
-				' TODO: TELL THE OTHER SIDE TO CLOSE.
+				SendMegaPacketClose(Mega, True)
 				
 				C.RemoveWaitingMegaPacket(Mega)
 			
@@ -2082,7 +2070,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return
 	End
 	
-	Method SendMegaPacketClose:Void(MP:MegaPacket, IsTheirPacket:Bool=True)
+	Method SendMegaPacketClose:Void(MP:MegaPacket, IsTheirPacket:Bool=True, Reliable:Bool=True, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
 		WriteInternalMessageHeader(P, INTERNAL_MSG_MEGA_PACKET_RESPONSE)
@@ -2237,11 +2225,13 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		
 		SendMegaPacketChunkRequest(MP, MP.PacketsReceived, Async)
 		
+		MP.PacketsReceived += 1
+		
 		If (IsFinal) Then
 			Return False ' Not IsFinal
 		Endif
 		
-		MP.PacketsReceived += 1
+		'Link += 1
 		
 		' Return the default response.
 		Return True

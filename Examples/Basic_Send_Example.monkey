@@ -27,7 +27,7 @@ Import brl.asyncevent
 ' Classes:
 Class TestApplication Extends App Implements NetworkListener Final
 	' Constant variable(s):
-	Const PORT:= 5029
+	Const PORT:= 27015 ' 5029
 	
 	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
 	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
@@ -56,6 +56,12 @@ Class TestApplication Extends App Implements NetworkListener Final
 	End
 	
 	Method OnUpdate:Int()
+		If (KeyHit(KEY_ESCAPE)) Then
+			OnClose()
+			
+			Return 0
+		Endif
+		
 		UpdateAsyncEvents()
 		
 		Server.Update()
