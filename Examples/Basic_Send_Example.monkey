@@ -29,8 +29,8 @@ Class TestApplication Extends App Implements NetworkListener Final
 	' Constant variable(s):
 	Const PORT:= 5029
 	
-	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
-	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
+	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
+	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
 	
 	Const MESSAGE_TYPE_NORMAL:= NetworkEngine.MSG_TYPE_CUSTOM
 	Const MESSAGE_TYPE_MEGA:= (MESSAGE_TYPE_NORMAL+1)
@@ -88,6 +88,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 						SendToClients(QuickSend_Reliable, False)
 					Endif
 					
+					#Rem
 					If (KeyHit(KEY_Y)) Then
 						Print("Sending out a mega-packet...")
 						
@@ -100,6 +101,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 						
 						Server.Send(MP, C, MESSAGE_TYPE_MEGA)
 					Endif
+					#End
 				#End
 			Endif
 		Next
@@ -321,6 +323,10 @@ Class TestApplication Extends App Implements NetworkListener Final
 		Print("Finished sending our mega-packet.")
 		
 		Return
+	End
+	
+	Method OnMegaPacketDownSize:Bool(Network:NetworkEngine, MP:MegaPacket)
+		Return False
 	End
 	
 	' Fields:

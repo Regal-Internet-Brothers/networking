@@ -30,8 +30,8 @@ Class Application Extends App Implements NetworkListener Final
 	' Constant variable(s):
 	Const PORT:= 5029
 	
-	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
-	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
+	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
+	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
 	
 	Const MESSAGE_TYPE_FILE:= (NetworkEngine.MSG_TYPE_CUSTOM+1)
 	
@@ -54,12 +54,37 @@ Class Application Extends App Implements NetworkListener Final
 		
 		Server.Update()
 		
-		If (ClientCreated And Server.Open And Not Server.HasClient) Then
-			Print("All clients have disconnected, exiting demo...")
+		If (ClientCreated) Then
+			Client.Update()
 			
-			OnClose()
+			If (Server.Open And Not Server.HasClient) Then
+				Print("All clients have disconnected, exiting demo...")
+				
+				OnClose()
+				
+				Return 0
+			Endif
 			
-			Return 0
+			If (KeyHit(KEY_F)) Then
+				Print("Sending out our file in bulk...")
+				
+				Local F:= FileStream.Open("E:\Other\xbox_360_controller-small.png", "r")
+				Local R:= New Repeater(F, True, True, False)
+				
+				Local MP:= New MegaPacket(Server)
+				
+				'DebugStop()
+				
+				R.Add(MP)
+				
+				R.TransferInput()
+				
+				For Local C:= Eachin Server
+					Server.Send(MP, C, MESSAGE_TYPE_FILE)
+				Next
+				
+				R.Close()
+			Endif
 		Endif
 		
 		' Return the default response.
@@ -75,7 +100,10 @@ Class Application Extends App Implements NetworkListener Final
 	
 	Method OnClose:Int()
 		Server.Close()
-		Client.Close()
+		
+		If (Client <> Null) Then
+			Client.Close()
+		Endif
 		
 		Return Super.OnClose()
 	End
@@ -144,6 +172,8 @@ Class Application Extends App Implements NetworkListener Final
 	End
 	
 	Method OnClientConnect:Bool(Network:NetworkEngine, Address:SocketAddress)
+		Print("Test")
+		
 		' Return the default response.
 		Return True
 	End
@@ -151,25 +181,6 @@ Class Application Extends App Implements NetworkListener Final
 	' This is called once, at any time after 'OnClientConnect'.
 	Method OnClientAccepted:Void(Network:NetworkEngine, C:Client)
 		Print("Client accepted: " + C.Address)
-		
-		Print("Sending out our file in bulk...")
-		
-		Local F:= FileStream.Open("E:\Other\xbox_360_controller-small.png", "r")
-		Local R:= New Repeater(F, True, True, False)
-		
-		Local MP:= New MegaPacket(Server)
-		
-		'DebugStop()
-		
-		R.Add(MP)
-		
-		R.TransferInput()
-		
-		For Local C:= Eachin Server
-			Server.Send(MP, C, MESSAGE_TYPE_FILE)
-		Next
-		
-		R.Close()
 		
 		ClientCreated = True
 		
