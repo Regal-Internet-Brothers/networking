@@ -31,12 +31,12 @@ Class Packet Extends PublicDataStream
 	End
 	
 	' Constructor(s):
-	Method New(Size:Int, FixByteOrder:Bool=Default_BigEndianStorage, Resizable:Bool=True, SizeLimit:Int=NOLIMIT)
-		Super.New(Size, FixByteOrder, Resizable, SizeLimit)
+	Method New(Size:Int, FixByteOrder:Bool=Default_BigEndianStorage, SizeLimit:Int=NOLIMIT)
+		Super.New(Size, FixByteOrder, False, SizeLimit)
 	End
 	
-	Method New(Message:String, Encoding:String="utf8", FixByteOrder:Bool=Default_BigEndianStorage, Resizable:Bool=True, SizeLimit:Int=NOLIMIT)
-		Super.New(SizeOfString(Message), FixByteOrder, Resizable, SizeLimit)
+	Method New(Message:String, Encoding:String="utf8", FixByteOrder:Bool=Default_BigEndianStorage, SizeLimit:Int=NOLIMIT)
+		Super.New(SizeOfString(Message), FixByteOrder, False, SizeLimit)
 		
 		Data.PokeString(0, Message, Encoding)
 		
@@ -104,9 +104,9 @@ Class ReliablePacket Extends Packet Final
 	Const PACKET_ID_NONE:PacketID = 0
 	
 	' Constructor(s):
-	Method New(Size:Int, FixByteOrder:Bool=Default_BigEndianStorage, Resizable:Bool=True, SizeLimit:Int=NOLIMIT)
+	Method New(Size:Int, FixByteOrder:Bool=Default_BigEndianStorage, SizeLimit:Int=NOLIMIT)
 		' Call the super-class's implementation.
-		Super.New(Size, FixByteOrder, Resizable, SizeLimit)
+		Super.New(Size, FixByteOrder, SizeLimit)
 	End
 	
 	' Destructor(s):

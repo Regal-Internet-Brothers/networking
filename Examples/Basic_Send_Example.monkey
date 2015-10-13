@@ -98,7 +98,7 @@ Class TestApplication Extends App Implements NetworkListener Final
 						MP.WriteLine("This is another line.")
 						MP.WriteLine("This is the final line.")
 						
-						Server.Send(MP, MESSAGE_TYPE_MEGA)
+						Server.Send(MP, C, MESSAGE_TYPE_MEGA)
 					Endif
 				#End
 			Endif

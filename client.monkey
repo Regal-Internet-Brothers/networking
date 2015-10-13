@@ -184,7 +184,7 @@ Class Client
 		Return
 	End
 	
-	Method RemoveWaitingMegaPacket:Void(ID:ExtPacketID)
+	Method RemoveWaitingMegaPacket:Void(ID:PacketID)
 		Local MP:= GetWaitingMegaPacket(ID)
 		
 		If (MP <> Null) Then
@@ -194,7 +194,7 @@ Class Client
 		Return
 	End
 	
-	Method GetWaitingMegaPacket:MegaPacket(ID:ExtPacketID)
+	Method GetWaitingMegaPacket:MegaPacket(ID:PacketID)
 		For Local MP:= Eachin WaitingMegaPackets
 			If (MP.ID = ID) Then
 				Return MP
@@ -205,7 +205,7 @@ Class Client
 		Return Null
 	End
 	
-	Method HasWaitingMegaPacket:Bool(ID:ExtPacketID)
+	Method HasWaitingMegaPacket:Bool(ID:PacketID)
 		Return (GetWaitingMegaPacket(ID) <> Null)
 	End
 	

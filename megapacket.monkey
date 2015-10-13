@@ -1,3 +1,8 @@
+#Rem
+	TODO:
+		* Preserve 'Packet' offsets.
+#End
+
 Strict
 
 Public
@@ -33,7 +38,7 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		'ReleaseRights' in mind when handling 'Packet' objects.
 	#End
 	
-	Method New(Network:NetworkEngine, ID:ExtPacketID, ReleaseRights:Bool=True)
+	Method New(Network:NetworkEngine, ID:PacketID, Destination:Client=Null, ReleaseRights:Bool=True)
 		' Call the super-class's implementation.
 		Super.New(Network.PacketGenerator.FixByteOrder, ReleaseRights)
 		
@@ -41,6 +46,7 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		Self.Network = Network
 		
 		Self.ID = ID
+		Self.Destination = Destination
 	End
 	
 	' This constructs a 'MegaPacket' for deployment purposes.
@@ -54,7 +60,7 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		
 		ID = Network.GetNextMegaPacketID()
 		
-		If (Not ExtendAndMark()) Then
+		If (Not ExtendAndMark(False)) Then
 			Throw New MegaPacket_UnableToExtend(Self)
 		Endif
 	End
@@ -82,10 +88,12 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		
 		ID = 0 ' NetworkEngine.INITIAL_PACKET_ID
 		Type = 0
+		PacketsReceived = 0
 		
 		Destination = Null
 		
-		' Set the confirmation flag to 'False'.
+		' Set the confirmation flags to 'False':
+		Accepted = False
 		Confirmed = False
 		
 		Return
@@ -114,6 +122,8 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 	Method Extend:Packet()
 		Local P:= Network.AllocatePacket()
 		
+		P.Offset = NetworkEngine.PACKET_HEADER_MARGIN
+		
 		Chain.Push(P)
 		
 		' Return the allocated 'Packet'.
@@ -128,32 +138,44 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		thus, starting a new one with the proper markings.
 		
 		It's best to let this class handle this for you.
+		
+		The 'MoveLink' argument is considered "unsafe", and
+		should only be used externally for debugging purposes.
 	#End
 	
-	Method ExtendAndMark:Bool()
+	Method ExtendAndMark:Bool(MoveLink:Bool=True)
 		Local Response:= (Extend() <> Null)
 		
 		If (Not Response) Then
 			Return False
 		Endif
 		
-		MarkCurrentPacket()
+		If (MoveLink) Then
+			' Move forward by one link.
+			Link += 1
+		Endif
+		
+		' Supply placeholder information.
+		MarkCurrentPacket(0, 0)
 		
 		' Return the default response.
 		Return True
 	End
 	
-	Method MarkCurrentPacket:Void(LinkNumber:Int, TotalLinks:Int=0)
+	Method MarkCurrentPacket:Void(LinkNumber:Int, TotalLinks:Int)
 		' Serialize the storage details:
-		WriteInt(ID)
-		WriteShort(TotalLinks)
-		WriteShort(LinkNumber)
+		NetworkEngine.WritePacketID(Self, ID)
+		
+		NetworkEngine.WriteNetSize(Self, TotalLinks)
+		NetworkEngine.WriteNetSize(Self, LinkNumber)
+		
+		'Seek(8)
 		
 		Return
 	End
 	
-	Method MarkCurrentPacket:Void(TotalLinks:Int=0)
-		MarkCurrentPacket(Link, TotalLinks)
+	Method MarkCurrentPacket:Void()
+		MarkCurrentPacket(Link, LinkCount)
 		
 		Return
 	End
@@ -170,7 +192,7 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 			
 			P.Seek(0)
 			
-			MarkCurrentPacket(I, LinkCount-1)
+			MarkCurrentPacket(I, LinkCount)
 			
 			P.Seek(CurrentPos)
 		Next
@@ -189,8 +211,7 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		If (BytesWritten < Count And OnFinalLink) Then
 			' Attempt to extend the chain further.
 			If (ExtendAndMark()) Then
-				' Move forward by one link.
-				Link += 1
+				'Print("{ ID: " + ID + ", LINKS: " + LinkCount + ", #" + Link + " }")
 				
 				' Recursively call this method again,
 				' this time, adjusted to the environment.
@@ -206,6 +227,9 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 	Private
 	
 	Method ReleasePacket:Void(P:Packet)
+		' Restore the specified 'Packet' object's 'Offset'.
+		P.Offset = 0
+		
 		Network.ReleasePacket(P)
 		
 		Return
@@ -220,12 +244,22 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 	Public
 	
 	' Properties (Public):
-	Method ID:ExtPacketID() Property
+	
+	' This is required for later assignment-delegation.
+	Method Link:Int() Property
+		Return Super.Link()
+	End
+	
+	Method ID:PacketID() Property
 		Return Self._ID
 	End
 	
 	Method Type:MessageType() Property
 		Return Self._Type
+	End
+	
+	Method PacketsReceived:Int() Property
+		Return Self._PacketsReceived
 	End
 	
 	Method Network:NetworkEngine() Property
@@ -239,7 +273,7 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 	' Properties (Protected):
 	Protected
 	
-	Method ID:Void(Input:ExtPacketID) Property
+	Method ID:Void(Input:PacketID) Property
 		Self._ID = Input
 		
 		Return
@@ -247,6 +281,12 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 	
 	Method Type:Void(Input:MessageType) Property
 		Self._Type = Input
+		
+		Return
+	End
+	
+	Method PacketsReceived:Void(Input:Int) Property
+		Self._PacketsReceived = Input
 		
 		Return
 	End
@@ -265,6 +305,18 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 	
 	Public
 	
+	' Properties (Private):
+	Private
+	
+	' Delegate this property as private:
+	Method Link:Void(Input:Int) Property
+		Super.Link(Input)
+		
+		Return
+	End
+	
+	Public
+	
 	' Fields (Public):
 	' Nothing so far.
 	
@@ -274,16 +326,22 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 	Field _Network:NetworkEngine
 	Field _Destination:Client
 	
-	Field _ID:ExtPacketID ' = 0 ' INITIAL_PACKET_ID
+	Field _ID:PacketID ' = 0 ' INITIAL_PACKET_ID
 	Field _Type:MessageType
+	
+	Field _PacketsReceived:Int
 	
 	Public
 	
 	' Fields (Private):
 	Private
 	
-	' This specifies if this has been "confirmed" by the other end.
-	' This is used for several reasons, including debugging.
+	' Internal flags:
+	
+	' This specifies if this 'MegaPacket' has been accepted initially by the other end.
+	Field Accepted:Bool
+	
+	' This specifies if this 'MegaPacket' has been "confirmed" completely by the other end.
 	Field Confirmed:Bool
 	
 	Public
@@ -294,14 +352,19 @@ Class MegaPacket_UnableToExtend Extends StreamError ' Final
 	' Constructor(s):
 	Method New(MP:MegaPacket)
 		Super.New(MP)
+		
+		'Self.MP = MP
 	End
 	
 	' Methods:
 	Method ToString:String() ' Property
-		If (MP.Length = 0) Then
+		If (GetStream().Length = 0) Then
 			Return "Unable to allocate initial packet for 'MegaPacket'."
 		Else
 			Return "Unable to properly extend 'MegaPacket'."
 		Endif
 	End
+	
+	' Fields:
+	'Field MP:MegaPacket
 End
