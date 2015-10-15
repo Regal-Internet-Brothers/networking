@@ -161,7 +161,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	'Const MEGA_PACKET_ACTION_REQUEST_DEBUG_NAME:PacketExtAction = 4
 	
 	' Defaults:
-	Const Default_PacketSize:= 8*1024 ' 4096 ' 8192
+	Const Default_PacketSize:= 4*1024 ' 8*1024 ' 4096 ' 8192
 	Const Default_PacketPoolSize:= 4
 	
 	Const Default_PacketReleaseTime:Duration = 1500 ' Milliseconds.
@@ -608,7 +608,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	
 	' These may be used to manually send a raw packet:
 	Method AutoSendRaw:Void(RawPacket:Packet, Async:Bool=True)
-		If (Not IsClient And TCPSocket) Then
+		If (Not IsClient) Then
 			RawSendToAll(RawPacket, Async)
 			
 			#Rem
@@ -628,6 +628,12 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	Method AutoSendRaw:Void(RawPacket:Packet, C:Client, Async:Bool=True)
+		If (C = Null) Then
+			AutoSendRaw(RawPacket, Async)
+			
+			Return
+		Endif
+		
 		Select SocketType
 			Case SOCKET_TYPE_UDP
 				RawSend(Connection, RawPacket, C.Address, Async)

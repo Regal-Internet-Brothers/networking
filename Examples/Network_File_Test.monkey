@@ -60,7 +60,8 @@ Class Application Extends App Implements NetworkListener Final
 	
 	' Constructor(s):
 	Method OnCreate:Int()
-		SetUpdateRate(60)
+		SetUpdateRate(0)
+		SetSwapInterval(0)
 		
 		Server = New NetworkEngine()
 		
