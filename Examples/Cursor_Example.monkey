@@ -148,8 +148,7 @@ Class Game Extends App Implements NetworkListener Final
 		Endif
 		
 		If (KeyHit(KEY_F2)) Then
-			'Connect("127.0.0.1")
-			Connect("192.168.1.32")
+			Connect("127.0.0.1")
 			
 			' Switch to gameplay.
 			Return True
