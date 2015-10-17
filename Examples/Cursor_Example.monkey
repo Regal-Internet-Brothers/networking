@@ -15,7 +15,6 @@ Public
 ' Imports:
 Import mojo
 
-Import brl.process
 Import brl.stream
 
 Import networking
@@ -34,6 +33,7 @@ Class Game Extends App Implements NetworkListener Final
 	Const MSG_TYPE_CREATE_PLAYERS_IN_BULK:= (MSG_TYPE_CREATE_PLAYER+1)
 	Const MSG_TYPE_STATE:= (MSG_TYPE_CREATE_PLAYERS_IN_BULK+1)
 	Const MSG_TYPE_STATES_IN_BULK:= (MSG_TYPE_STATE+1)
+	Const MSG_TYPE_DELETE_PLAYER:= (MSG_TYPE_STATES_IN_BULK+1)
 	
 	' State types:
 	Const STATE_WAITING:= 0
@@ -121,7 +121,7 @@ Class Game Extends App Implements NetworkListener Final
 		
 		Select State
 			Case STATE_WAITING
-				DrawText("Press F1 to host.", 16.0, 16.0)
+				DrawText("Press F1 or click/tap to host.", 16.0, 16.0)
 				DrawText("Press F2 to connect locally.", 16.0, 32.0)
 			Case STATE_GAMEPLAY
 				For Local P:= Eachin Players
@@ -134,7 +134,7 @@ Class Game Extends App Implements NetworkListener Final
 	End
 	
 	Method WhileWaiting:Bool()
-		If (KeyHit(KEY_F1)) Then
+		If (KeyHit(KEY_F1) Or MouseHit(MOUSE_LEFT)) Then
 			Host()
 			
 			LocalCursor = New LocalPlayer()
@@ -148,7 +148,8 @@ Class Game Extends App Implements NetworkListener Final
 		Endif
 		
 		If (KeyHit(KEY_F2)) Then
-			Connect("127.0.0.1")
+			'Connect("127.0.0.1")
+			Connect("192.168.1.32")
 			
 			' Switch to gameplay.
 			Return True
@@ -164,15 +165,21 @@ Class Game Extends App Implements NetworkListener Final
 			P.Update()
 		Next
 		
-		If (LocalCursor <> Null And Network.Open()) Then
-			If (Millisecs()-SendTimer >= SendTime) Then
-				If (Network.IsClient) Then
-					SendPlayerState(LocalCursor)
-				Else
-					SendPlayerStatesInBulk()
+		If (LocalCursor <> Null) Then
+			If (Network.Open()) Then
+				If (Millisecs()-SendTimer >= SendTime) Then
+					If (Network.IsClient) Then
+						SendPlayerState(LocalCursor)
+					Else
+						SendPlayerStatesInBulk()
+					Endif
+					
+					SendTimer = Millisecs()
 				Endif
+			Else
+				OnClose()
 				
-				SendTimer = Millisecs()
+				Return
 			Endif
 		Endif
 		
@@ -196,6 +203,24 @@ Class Game Extends App Implements NetworkListener Final
 		S.WriteInt(PlayerHandle.ID)
 		
 		PlayerHandle.Save(S)
+		
+		Return
+	End
+	
+	Method ReadDeletePlayerMessage:Void(S:Stream)
+		Local ID:= S.ReadInt()
+		
+		If (LocalCursor.ID = ID) Then
+			Network.CloseAsync()
+		Else
+			RemovePlayer(ID)
+		Endif
+		
+		Return
+	End
+	
+	Method WriteDeletePlayerMessage:Void(S:Stream, PlayerHandle:Player)
+		S.WriteInt(PlayerHandle.ID)
 		
 		Return
 	End
@@ -269,7 +294,7 @@ Class Game Extends App Implements NetworkListener Final
 		
 		WriteCreatePlayerMessage(P, PlayerHandle)
 		
-		Network.Send(P, C, MSG_TYPE_CREATE_PLAYER)
+		Network.Send(P, C, MSG_TYPE_CREATE_PLAYER, True)
 		
 		Network.ReleasePacket(P)
 		
@@ -282,7 +307,21 @@ Class Game Extends App Implements NetworkListener Final
 		
 		WritePlayersInBulk(P)
 		
-		Network.Send(P, C, MSG_TYPE_CREATE_PLAYERS_IN_BULK)
+		Network.Send(P, C, MSG_TYPE_CREATE_PLAYERS_IN_BULK, True)
+		
+		Network.ReleasePacket(P)
+		
+		Return
+	End
+	
+	Method DisconnectPlayer:Void(PlayerHandle:Player)
+		RemovePlayer(PlayerHandle)
+		
+		Local P:= Network.AllocatePacket()
+		
+		WriteDeletePlayerMessage(P, PlayerHandle)
+		
+		Network.Send(P, MSG_TYPE_DELETE_PLAYER, True)
 		
 		Network.ReleasePacket(P)
 		
@@ -340,6 +379,24 @@ Class Game Extends App Implements NetworkListener Final
 		Return
 	End
 	
+	Method RemovePlayer:Void(ID:Int)
+		For Local P:= Eachin Players
+			If (P.ID = ID) Then
+				RemovePlayer(P)
+				
+				Return
+			Endif
+		Next
+		
+		Return
+	End
+	
+	Method RemovePlayer:Void(PlayerHandle:Player)
+		Players.RemoveEach(PlayerHandle)
+		
+		Return
+	End
+	
 	' Call-backs:
 	Method OnNetworkBind:Void(Network:NetworkEngine, Successful:Bool)
 		If (Not Successful) Then
@@ -388,6 +445,8 @@ Class Game Extends App Implements NetworkListener Final
 				#End
 			Case MSG_TYPE_STATES_IN_BULK
 				ReadPlayerStatesInBulk(Message)
+			Case MSG_TYPE_DELETE_PLAYER
+				ReadDeletePlayerMessage(Message)
 		End Select
 		
 		Return
@@ -447,7 +506,7 @@ Class Game Extends App Implements NetworkListener Final
 		
 		For Local P:= Eachin Players
 			If (P.NetworkHandle = C) Then
-				Players.RemoveEach(P)
+				DisconnectPlayer(P)
 			Endif
 		Next
 		
