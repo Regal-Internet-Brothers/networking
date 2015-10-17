@@ -29,10 +29,11 @@ Class Game Extends App Implements NetworkListener Final
 	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
 	
 	' Message types:
-	Const MSG_TYPE_WELCOME:= NetworkEngine.MSG_TYPE_CUSTOM ' + 128
+	Const MSG_TYPE_WELCOME:= NetworkEngine.MSG_TYPE_CUSTOM
 	Const MSG_TYPE_CREATE_PLAYER:= (MSG_TYPE_WELCOME+1)
 	Const MSG_TYPE_CREATE_PLAYERS_IN_BULK:= (MSG_TYPE_CREATE_PLAYER+1)
 	Const MSG_TYPE_STATE:= (MSG_TYPE_CREATE_PLAYERS_IN_BULK+1)
+	Const MSG_TYPE_STATES_IN_BULK:= (MSG_TYPE_STATE+1)
 	
 	' State types:
 	Const STATE_WAITING:= 0
@@ -60,6 +61,8 @@ Class Game Extends App Implements NetworkListener Final
 		SetUpdateRate(0)
 		
 		Players = New List<Player>()
+		
+		SendTime = 50 ' Milliseconds.
 		
 		' Return the default response.
 		Return 0
@@ -116,9 +119,15 @@ Class Game Extends App Implements NetworkListener Final
 	Method OnRender:Int()
 		Cls(205.0, 205.0, 205.0)
 		
-		For Local P:= Eachin Players
-			P.Render()
-		Next
+		Select State
+			Case STATE_WAITING
+				DrawText("Press F1 to host.", 16.0, 16.0)
+				DrawText("Press F2 to connect locally.", 16.0, 32.0)
+			Case STATE_GAMEPLAY
+				For Local P:= Eachin Players
+					P.Render()
+				Next
+		End Select
 		
 		' Return the default response.
 		Return 0
@@ -149,13 +158,22 @@ Class Game Extends App Implements NetworkListener Final
 		Return False
 	End
 	
+	' Gameplay update routine:
 	Method Update:Void()
 		For Local P:= Eachin Players
 			P.Update()
 		Next
 		
 		If (LocalCursor <> Null And Network.Open()) Then
-			SendPlayerState(LocalCursor)
+			If (Millisecs()-SendTimer >= SendTime) Then
+				If (Network.IsClient) Then
+					SendPlayerState(LocalCursor)
+				Else
+					SendPlayerStatesInBulk()
+				Endif
+				
+				SendTimer = Millisecs()
+			Endif
 		Endif
 		
 		Return
@@ -225,6 +243,26 @@ Class Game Extends App Implements NetworkListener Final
 		Return
 	End
 	
+	Method ReadPlayerStatesInBulk:Void(S:Stream)
+		Local Count:= S.ReadInt()
+		
+		For Local I:= 1 To Count
+			ReadPlayerState(S)
+		Next
+		
+		Return
+	End
+	
+	Method WritePlayerStatesInBulk:Void(S:Stream)
+		S.WriteInt(Players.Count())
+		
+		For Local P:= Eachin Players
+			WritePlayerState(S, P)
+		Next
+		
+		Return
+	End
+	
 	' This tells 'C' about the specified 'Player'.
 	Method SendPlayer:Void(C:Client, PlayerHandle:Player)
 		Local P:= Network.AllocatePacket()
@@ -289,6 +327,19 @@ Class Game Extends App Implements NetworkListener Final
 		Return
 	End
 	
+	' This is mainly used by hosts; sends all of the player states.
+	Method SendPlayerStatesInBulk:Void()
+		Local P:= Network.AllocatePacket()
+		
+		WritePlayerStatesInBulk(P)
+		
+		Network.Send(P, MSG_TYPE_STATES_IN_BULK, True) ' False
+		
+		Network.ReleasePacket(P)
+		
+		Return
+	End
+	
 	' Call-backs:
 	Method OnNetworkBind:Void(Network:NetworkEngine, Successful:Bool)
 		If (Not Successful) Then
@@ -299,9 +350,9 @@ Class Game Extends App Implements NetworkListener Final
 			OnClose()
 			
 			Return
-		Else
-			Print("Socket bound.")
 		Endif
+		
+		Print("Socket bound.")
 		
 		Return
 	End
@@ -325,13 +376,18 @@ Class Game Extends App Implements NetworkListener Final
 			Case MSG_TYPE_STATE
 				Local P:= ReadPlayerState(Message)
 				
-				For Local OtherClient:= Eachin Network
-					If (OtherClient = C) Then
-						Continue
-					Endif
-					
-					SendPlayerState(OtherClient, P)
-				Next
+				#Rem
+					' Relay the message to everyone else:
+					For Local OtherClient:= Eachin Network
+						If (OtherClient = C) Then
+							Continue
+						Endif
+						
+						SendPlayerState(OtherClient, P)
+					Next
+				#End
+			Case MSG_TYPE_STATES_IN_BULK
+				ReadPlayerStatesInBulk(Message)
 		End Select
 		
 		Return
@@ -383,7 +439,17 @@ Class Game Extends App Implements NetworkListener Final
 	End
 	
 	Method OnClientDisconnected:Void(Network:NetworkEngine, C:Client)
-		Print("Client disconnected.")
+		#If CONFIG = "debug"
+			DebugStop()
+		#End
+		
+		Print("Client disconnected: " + C.Address)
+		
+		For Local P:= Eachin Players
+			If (P.NetworkHandle = C) Then
+				Players.RemoveEach(P)
+			Endif
+		Next
 		
 		Return
 	End
@@ -425,6 +491,7 @@ Class Game Extends App Implements NetworkListener Final
 	
 	' Fields:
 	Field State:Int = STATE_WAITING
+	Field SendTimer:Int, SendTime:Int
 	
 	Field LocalCursor:LocalPlayer
 	Field NextPlayerID:= 1

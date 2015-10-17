@@ -174,6 +174,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	' Booleans / Flags:
 	Const Default_FixByteOrder:Bool = True
 	Const Default_MultiConnection:Bool = True
+	Const Default_LaunchReceivePerClient:Bool = True ' False
 	
 	Const Default_ClientMessagesAfterDisconnect:Bool = False ' True
 	
@@ -187,7 +188,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	' Constructor(s) (Public):
-	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PingFrequency:Duration=Default_PingFrequency, MaxPing:NetworkPing=Default_MaxPing, MaxChunksPerMegaPacket:Int=Default_MaxChunksPerMegaPacket, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime)
+	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PingFrequency:Duration=Default_PingFrequency, MaxPing:NetworkPing=Default_MaxPing, MaxChunksPerMegaPacket:Int=Default_MaxChunksPerMegaPacket, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime, LaunchReceivePerClient:Bool=Default_LaunchReceivePerClient)
 		Self.PacketGenerator = New BasicPacketPool(PacketSize, PacketPoolSize, FixByteOrder)
 		Self.SystemPackets = New Stack<Packet>()
 		
@@ -198,6 +199,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		
 		Self.PacketReleaseTime = PacketReleaseTime
 		Self.PacketResendTime = PacketResendTime
+		Self.LaunchReceivePerClient = LaunchReceivePerClient
 	End
 	
 	' Constructor(s) (Protected):
@@ -334,6 +336,9 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		
 		' Reset our multi-connection setting.
 		MultiConnection = Default_MultiConnection
+		
+		' Set the number of active extra "receive operations".
+		ExtraReceiveOperations = 0
 		
 		' Stop network termination.
 		Terminating = False
@@ -524,6 +529,29 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	' I/O related:
+	
+	' This adds another "receiver thread" for asynchronous input. (Use at your own risk)
+	Method AddAsyncReceive:Void()
+		If (Not IsClient) Then
+			If (Not TCPSocket) Then
+				AutoLaunchReceive(Socket, True)
+			Endif
+		Else
+			AutoLaunchReceive(Socket, True)
+		Endif
+		
+		Return
+	End
+	
+	Method SmartAddAsyncReceive:Void()
+		If (LaunchReceivePerClient And ExtraReceiveOperations < Clients.Count()) Then
+			ExtraReceiveOperations += 1
+			
+			AddAsyncReceive()
+		Endif
+		
+		Return
+	End
 	
 	#Rem
 		When no address is specified, 'Send' will output to
@@ -1039,10 +1067,10 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 				If (TCPSocket) Then
 					Connection.AcceptAsync(Self)
 				Else
-					AutoLaunchReceive(Source)
+					AutoLaunchReceive(Source, True)
 				Endif
 			Else
-				AutoLaunchReceive(Source)
+				AutoLaunchReceive(Source, True)
 			Endif
 		Endif
 		
@@ -1190,18 +1218,24 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return
 	End
 	
-	Method AutoLaunchReceive:Void(S:Socket, P:Packet)
-		If (IsClient Or TCPSocket) Then
-			LaunchAsyncReceive(S, P)
+	Method AutoLaunchReceive:Void(S:Socket, P:Packet, Force:Bool=False)
+		If (Force Or ExtraReceiveOperations < Clients.Count()) Then
+			If (IsClient Or TCPSocket) Then
+				LaunchAsyncReceive(S, P)
+			Else
+				LaunchAsyncReceiveFrom(S, P)
+			Endif
 		Else
-			LaunchAsyncReceiveFrom(S, P)
+			DeallocateSystemPacket(P)
+			
+			ExtraReceiveOperations = Max((ExtraReceiveOperations - 1), 0)
 		Endif
 		
 		Return
 	End
 	
-	Method AutoLaunchReceive:Void(S:Socket)
-		AutoLaunchReceive(S, AllocateSystemPacket())
+	Method AutoLaunchReceive:Void(S:Socket, Force:Bool=False)
+		AutoLaunchReceive(S, AllocateSystemPacket(), Force)
 		
 		Return
 	End
@@ -1216,8 +1250,6 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	Method LaunchAsyncReceiveFrom:Void(S:Socket, P:Packet)
-		P.Reset()
-		
 		LaunchAsyncReceiveFrom(S, P, New NetworkAddress())
 		
 		Return
@@ -1400,7 +1432,6 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 				Endif
 			Endif
 			
-			Local ExtendedPacket:= ReadBool(P)
 			Local Type:= ReadMessageType(P)
 			
 			Select Type
@@ -1436,6 +1467,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 								Else
 									SendWarningMessage(InternalType, C)
 								Endif
+								
+								SmartAddAsyncReceive()
 							Elseif (UDPSocket) Then
 								' The the remote machine that it's trying
 								' to connect to a single-connection network.
@@ -1465,7 +1498,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 							Endif
 						
 						' Due to the nature of a client's response to this message,
-						' you may not send a response using this message exact type.
+						' you may not send a response using this message's exact type.
 						' (Use 'INTERNAL_MSG_DISCONNECT'; call 'Disconnect')
 						Case INTERNAL_MSG_REQUEST_DISCONNECTION
 							If (Not IsClient) Then
@@ -1714,6 +1747,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 							Endif
 					End Select
 				Default
+					Local ExtendedPacket:= ReadBool(P)
 					Local DataSize:= ReadNetSize(P)
 					
 					Local DataSegmentOrigin:= P.Position
@@ -1872,13 +1906,18 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	' The 'DefaultSize' argument is used if 'Input' is 'Null'.
 	' If we are writing an internal message, the data-segment length will not be serialized.
 	Method WriteMessage:Void(Output:Packet, Type:MessageType, Input:Packet=Null, ExtendedPacket:Bool=False, DefaultSize:Int=0)
-		WriteBool(Output, ExtendedPacket)
 		WriteMessageType(Output, Type)
 		
 		Select Type
 			Case MSG_TYPE_INTERNAL
-				' Nothing so far.
+				#Rem
+					If (ExtendedPacket) Then
+						DebugStop()
+					Endif
+				#End
 			Default
+				WriteBool(Output, ExtendedPacket)
+				
 				If (Input <> Null) Then
 					WriteNetSize(Output, Input.Length)
 				Else
@@ -2504,6 +2543,9 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	' Used to route call-back routines.
 	Field Callback:NetworkListener
 	
+	' This is used internally to handle extra "async-receive-threads".
+	Field ExtraReceiveOperations:Int
+	
 	' A counter used to keep track of reliable packets.
 	' Reliable packets are only used when UDP is the underlying protocol.
 	' If TCP is used, then reliable packets will be handled normally.
@@ -2517,6 +2559,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	
 	' Booleans / Flags:
 	Field Terminating:Bool
+	Field LaunchReceivePerClient:Bool
 	
 	Field _IsClient:Bool
 	
