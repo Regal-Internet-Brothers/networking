@@ -8,9 +8,22 @@ Strict
 Public
 
 ' Preprocessor related:
+#CURSOR_DEMO_CRAZY_MODE = True
 
 ' If enabled, this could cause timeouts.
 #MOJO_AUTO_SUSPEND_ENABLED = False
+
+' GLFW related:
+#GLFW_USE_MINGW=True
+
+#GLFW_WINDOW_TITLE="Monkey Game"
+#GLFW_WINDOW_WIDTH=640
+#GLFW_WINDOW_HEIGHT=480
+#GLFW_WINDOW_SAMPLES=0
+#GLFW_WINDOW_RESIZABLE=True
+#GLFW_WINDOW_DECORATED=True
+#GLFW_WINDOW_FLOATING=False
+#GLFW_WINDOW_FULLSCREEN=False
 
 ' Imports:
 Import mojo
@@ -22,10 +35,10 @@ Import networking
 ' Classes:
 Class Game Extends App Implements NetworkListener Final
 	' Constant variable(s):
-	Const PORT:= 27015
+	Const PORT:= 27015 ' 5029
 	
-	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
-	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
+	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
+	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
 	
 	' Message types:
 	Const MSG_TYPE_WELCOME:= NetworkEngine.MSG_TYPE_CUSTOM
@@ -59,6 +72,7 @@ Class Game Extends App Implements NetworkListener Final
 	' Constructor(s):
 	Method OnCreate:Int()
 		SetUpdateRate(0)
+		SetSwapInterval(0)
 		
 		Players = New List<Player>()
 		
@@ -117,7 +131,9 @@ Class Game Extends App Implements NetworkListener Final
 	End
 	
 	Method OnRender:Int()
-		Cls(205.0, 205.0, 205.0)
+		#If Not CURSOR_DEMO_CRAZY_MODE
+			Cls(205.0, 205.0, 205.0)
+		#End
 		
 		Select State
 			Case STATE_WAITING

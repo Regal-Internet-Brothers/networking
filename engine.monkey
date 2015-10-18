@@ -174,7 +174,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	' Booleans / Flags:
 	Const Default_FixByteOrder:Bool = True
 	Const Default_MultiConnection:Bool = True
-	Const Default_LaunchReceivePerClient:Bool = True ' False
+	'Const Default_LaunchReceivePerClient:Bool = True ' False
 	
 	Const Default_ClientMessagesAfterDisconnect:Bool = False ' True
 	
@@ -188,7 +188,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	' Constructor(s) (Public):
-	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PingFrequency:Duration=Default_PingFrequency, MaxPing:NetworkPing=Default_MaxPing, MaxChunksPerMegaPacket:Int=Default_MaxChunksPerMegaPacket, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime, LaunchReceivePerClient:Bool=Default_LaunchReceivePerClient)
+	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PingFrequency:Duration=Default_PingFrequency, MaxPing:NetworkPing=Default_MaxPing, MaxChunksPerMegaPacket:Int=Default_MaxChunksPerMegaPacket, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime) ' LaunchReceivePerClient:Bool=Default_LaunchReceivePerClient
 		Self.PacketGenerator = New BasicPacketPool(PacketSize, PacketPoolSize, FixByteOrder)
 		Self.SystemPackets = New Stack<Packet>()
 		
@@ -199,7 +199,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		
 		Self.PacketReleaseTime = PacketReleaseTime
 		Self.PacketResendTime = PacketResendTime
-		Self.LaunchReceivePerClient = LaunchReceivePerClient
+		'Self.LaunchReceivePerClient = LaunchReceivePerClient
 	End
 	
 	' Constructor(s) (Protected):
@@ -338,7 +338,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		MultiConnection = Default_MultiConnection
 		
 		' Set the number of active extra "receive operations".
-		ExtraReceiveOperations = 0
+		'ExtraReceiveOperations = 0
 		
 		' Stop network termination.
 		Terminating = False
@@ -530,28 +530,30 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	
 	' I/O related:
 	
-	' This adds another "receiver thread" for asynchronous input. (Use at your own risk)
-	Method AddAsyncReceive:Void()
-		If (Not IsClient) Then
-			If (Not TCPSocket) Then
+	#Rem
+		' This adds another "receiver thread" for asynchronous input. (Use at your own risk)
+		Method AddAsyncReceive:Void()
+			If (Not IsClient) Then
+				If (Not TCPSocket) Then
+					AutoLaunchReceive(Socket, True)
+				Endif
+			Else
 				AutoLaunchReceive(Socket, True)
 			Endif
-		Else
-			AutoLaunchReceive(Socket, True)
-		Endif
-		
-		Return
-	End
-	
-	Method SmartAddAsyncReceive:Void()
-		If (LaunchReceivePerClient And ExtraReceiveOperations < Clients.Count()) Then
-			ExtraReceiveOperations += 1
 			
-			AddAsyncReceive()
-		Endif
+			Return
+		End
 		
-		Return
-	End
+		Method SmartAddAsyncReceive:Void()
+			If (LaunchReceivePerClient And ExtraReceiveOperations < Clients.Count()) Then
+				ExtraReceiveOperations += 1
+				
+				AddAsyncReceive()
+			Endif
+			
+			Return
+		End
+	#End
 	
 	#Rem
 		When no address is specified, 'Send' will output to
@@ -1219,17 +1221,21 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	Method AutoLaunchReceive:Void(S:Socket, P:Packet, Force:Bool=False)
-		If (Force Or ExtraReceiveOperations < Clients.Count()) Then
-			If (IsClient Or TCPSocket) Then
-				LaunchAsyncReceive(S, P)
-			Else
-				LaunchAsyncReceiveFrom(S, P)
-			Endif
+		If (IsClient Or TCPSocket) Then
+			LaunchAsyncReceive(S, P)
 		Else
-			DeallocateSystemPacket(P)
-			
-			ExtraReceiveOperations = Max((ExtraReceiveOperations - 1), 0)
+			LaunchAsyncReceiveFrom(S, P)
 		Endif
+		
+		#Rem
+			If (Force Or ExtraReceiveOperations < Clients.Count()) Then
+				' ...
+			Else
+				DeallocateSystemPacket(P)
+				
+				ExtraReceiveOperations = Max((ExtraReceiveOperations - 1), 0)
+			Endif
+		#End
 		
 		Return
 	End
@@ -1468,7 +1474,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 									SendWarningMessage(InternalType, C)
 								Endif
 								
-								SmartAddAsyncReceive()
+								'SmartAddAsyncReceive()
 							Elseif (UDPSocket) Then
 								' The the remote machine that it's trying
 								' to connect to a single-connection network.
@@ -2544,7 +2550,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Field Callback:NetworkListener
 	
 	' This is used internally to handle extra "async-receive-threads".
-	Field ExtraReceiveOperations:Int
+	'Field ExtraReceiveOperations:Int
 	
 	' A counter used to keep track of reliable packets.
 	' Reliable packets are only used when UDP is the underlying protocol.
@@ -2559,7 +2565,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	
 	' Booleans / Flags:
 	Field Terminating:Bool
-	Field LaunchReceivePerClient:Bool
+	'Field LaunchReceivePerClient:Bool
 	
 	Field _IsClient:Bool
 	
