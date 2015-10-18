@@ -37,34 +37,8 @@ Public
 Alias ProtocolType = Int ' Byte
 
 ' Interfaces:
-Interface NetworkListener
+Interface MegaPacketNetworkListener
 	' Methods:
-	Method OnNetworkBind:Void(Network:NetworkEngine, Successful:Bool)
-	
-	' The 'Message' object will be automatically released, and should not be closed.
-	' The 'MessageSize' argument specifies how many bytes are in the data-segment of 'Message'.
-	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Stream, MessageSize:Int)
-	
-	' This is called when a client attempts to connect.
-	' The return-value of this command dictates if the client at 'Address' should be accepted.
-	Method OnClientConnect:Bool(Network:NetworkEngine, Address:NetworkAddress)
-	
-	' This is called once, at any time after 'OnClientConnect'.
-	Method OnClientAccepted:Void(Network:NetworkEngine, C:Client)
-	
-	' This is called when a client disconnects.
-	' This will not be called for client-networks, only hosts.
-	Method OnClientDisconnected:Void(Network:NetworkEngine, C:Client)
-	
-	' This is called when 'Network' is disconnected.
-	' This exists primarily for clients that have disconnected.
-	' That being said, this is not exclusive to clients.
-	Method OnDisconnected:Void(Network:NetworkEngine)
-	
-	' The 'P' object represents the "real" 'Packet' that was sent. (Unlike 'OnReceiveMessage')
-	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:NetworkAddress, BytesSent:Int)
-	
-	' 'MegaPacket' callback layer:
 	
 	' This is called when a remote 'MegaPacket' request is accepted on this end.
 	Method OnMegaPacketRequestAccepted:Void(Network:NetworkEngine, MP:MegaPacket)
@@ -90,8 +64,48 @@ Interface NetworkListener
 	Method OnMegaPacketDownSize:Bool(Network:NetworkEngine, MP:MegaPacket)
 End
 
+Interface CoreNetworkListener
+	' Methods:
+	Method OnNetworkBind:Void(Network:NetworkEngine, Successful:Bool)
+	
+	' The 'P' object represents the "real" 'Packet' that was sent. (Unlike 'OnReceiveMessage')
+	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:NetworkAddress, BytesSent:Int)
+End
+
+Interface ClientNetworkListener
+	' Methods:
+	
+	' This is called when a client attempts to connect.
+	' The return-value of this command dictates if the client at 'Address' should be accepted.
+	Method OnClientConnect:Bool(Network:NetworkEngine, Address:NetworkAddress)
+	
+	' This is called once, at any time after 'OnClientConnect'.
+	Method OnClientAccepted:Void(Network:NetworkEngine, C:Client)
+	
+	' This is called when a client disconnects.
+	' This will not be called for client-networks, only hosts.
+	Method OnClientDisconnected:Void(Network:NetworkEngine, C:Client)
+End
+
+Interface MetaNetworkListener
+	' Methods:
+	
+	' The 'Message' object will be automatically released, and should not be closed.
+	' The 'MessageSize' argument specifies how many bytes are in the data-segment of 'Message'.
+	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Stream, MessageSize:Int)
+	
+	' This is called when 'Network' is disconnected.
+	' This exists primarily for clients that have disconnected.
+	' That being said, this is not exclusive to clients.
+	Method OnDisconnected:Void(Network:NetworkEngine)
+End
+
+Interface NetworkListener Extends CoreNetworkListener, MetaNetworkListener, ClientNetworkListener, MegaPacketNetworkListener
+	' Nothing so far.
+End
+
 ' Classes:
-Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptComplete, IOnConnectComplete, IOnSendComplete, IOnSendToComplete, IOnReceiveFromComplete, IOnReceiveComplete ' Final
+Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptComplete, IOnConnectComplete, IOnSendComplete, IOnSendToComplete, IOnReceiveFromComplete, IOnReceiveComplete
 	' Constant variable(s):
 	Const PORT_AUTOMATIC:= 0
 	
@@ -185,6 +199,17 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Endif
 		
 		Return (X.Port = Y.Port And X.Host = Y.Host)
+	End
+	
+	Function ProtocolToString:String(Protocol:ProtocolType)
+		Select Protocol
+			Case SOCKET_TYPE_UDP
+				Return "UDP"
+			Case SOCKET_TYPE_TCP
+				Return "TCP"
+		End Select
+		
+		Return "Unknown"
 	End
 	
 	' Constructor(s) (Public):
@@ -300,8 +325,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Endif
 		
 		If (Connection <> Null) Then
-			If (HasCallback) Then
-				Callback.OnDisconnected(Self)
+			If (HasMetaCallback) Then
+				MetaCallback.OnDisconnected(Self)
 			Endif
 			
 			' Send a final (Unreliable) notice, even if it isn't received.
@@ -425,7 +450,10 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	Method SetCallback:Void(Callback:NetworkListener)
-		Self.Callback = Callback
+		Self.CoreCallback = Callback
+		Self.MetaCallback = Callback
+		Self.ClientCallback = Callback
+		Self.MegaPacketCallback = Callback
 		
 		Return
 	End
@@ -839,8 +867,15 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return RP
 	End
 	
-	Method IsCallback:Bool(L:NetworkListener)
-		Return (Callback = L)
+	' This specifies if 'Callback' is in any way a callback internally.
+	Method IsCallback:Bool(Callback:NetworkListener)
+		If (CoreCallback = Callback) Then Return True
+		If (MetaCallback = Callback) Then Return True
+		If (ClientCallback = Callback) Then Return True
+		If (MegaPacketCallback = Callback) Then Return True
+		
+		' Return the default response.
+		Return False
 	End
 	
 	Method AllocatePacket:Packet()
@@ -909,8 +944,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			Next
 		Endif
 		
-		If (HasCallback) Then
-			Callback.OnClientDisconnected(Self, C)
+		If (HasClientCallback) Then
+			ClientCallback.OnClientDisconnected(Self, C)
 		Endif
 		
 		C.Close()
@@ -1003,8 +1038,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Method AbortMegaPacket:Void(MP:MegaPacket, FromClient:Bool, Reason:PacketExtResponse=MEGA_PACKET_RESPONSE_ABORT)
 		SendMegaPacketRejection(MP, Reason, FromClient)
 		
-		If (HasCallback) Then
-			Callback.OnMegaPacketRequestAborted(Self, MP)
+		If (HasMegaPacketCallback) Then
+			MegaPacketCallback.OnMegaPacketRequestAborted(Self, MP)
 		Endif
 		
 		If (FromClient) Then
@@ -1060,8 +1095,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	
 	' Call-backs:
 	Method OnBindComplete:Void(Bound:Bool, Source:Socket)
-		If (HasCallback) Then
-			Callback.OnNetworkBind(Self, Bound)
+		If (HasCoreCallback) Then
+			CoreCallback.OnNetworkBind(Self, Bound)
 		Endif
 		
 		If (Bound) Then
@@ -1114,18 +1149,16 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Local P:= RetrieveWaitingPacketHandle(Data)
 		
 		If (P <> Null) Then
-			If (HasCallback) Then
-				P.SetLength(Count)
-				
-				' Manually disable 'Socket' usage when using UDP:
-				If (UDPSocket) Then
-					ReadMessage(P, Address, Source)
-				Else
-					ReadMessage(P, Address, Source)
-				Endif
-				
-				P.ResetLength()
+			P.SetLength(Count)
+			
+			' Manually disable 'Socket' usage when using UDP:
+			If (UDPSocket) Then
+				ReadMessage(P, Address, Source)
+			Else
+				ReadMessage(P, Address, Source)
 			Endif
+			
+			P.ResetLength()
 			
 			AutoLaunchReceive(Source, P)
 		Endif
@@ -1183,8 +1216,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Local P:= RetrieveWaitingPacketHandle(Data)
 		
 		If (P <> Null) Then
-			If (Count > 0 And HasCallback) Then
-				Callback.OnSendComplete(Self, P, Address, Count)
+			If (Count > 0 And HasCoreCallback) Then
+				CoreCallback.OnSendComplete(Self, P, Address, Count)
 			Endif
 			
 			' Remove our transit-reference to this packet.
@@ -1452,7 +1485,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 							
 							If (MultiConnection) Then
 								If (C = Null) Then
-									If (Not HasCallback Or Callback.OnClientConnect(Self, Address)) Then
+									If (Not HasClientCallback Or ClientCallback.OnClientConnect(Self, Address)) Then
 										Local C:Client
 										
 										Select SocketType
@@ -1466,8 +1499,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 										
 										Clients.AddLast(C)
 										
-										If (HasCallback) Then
-											Callback.OnClientAccepted(Self, C)
+										If (HasClientCallback) Then
+											ClientCallback.OnClientAccepted(Self, C)
 										Endif
 									Endif
 								Else
@@ -1555,8 +1588,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 							' Hold this 'MegaPacket' until the network considers it done.
 							C.AddWaitingMegaPacket(Mega)
 							
-							If (HasCallback) Then
-								Callback.OnMegaPacketRequestAccepted(Self, Mega)
+							If (HasMegaPacketCallback) Then
+								MegaPacketCallback.OnMegaPacketRequestAccepted(Self, Mega)
 							Endif
 							
 							' Tell the other end we're accepting their 'MegaPacket'.
@@ -1586,20 +1619,20 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 											' Our message was accepted initially.
 											Mega.Accepted = True
 											
-											If (HasCallback) Then
-												Callback.OnMegaPacketRequestSucceeded(Self, Mega)
+											If (HasMegaPacketCallback) Then
+												MegaPacketCallback.OnMegaPacketRequestSucceeded(Self, Mega)
 											Endif
 											
 											' Tell the other end the details. (Ask to begin)
 											SendMegaPacketChunkLoadRequest(Mega, False)
 										Case MEGA_PACKET_RESPONSE_CLOSE
-											If (HasCallback) Then
-												Callback.OnMegaPacketSent(Self, Mega)
+											If (HasMegaPacketCallback) Then
+												MegaPacketCallback.OnMegaPacketSent(Self, Mega)
 											Endif
 											
 											#Rem
-												If (HasCallback) Then
-													Callback.OnMegaPacketRequestFailed(Self, Mega)
+												If (HasMegaPacketCallback) Then
+													MegaPacketCallback.OnMegaPacketRequestFailed(Self, Mega)
 												Endif
 											#End
 											
@@ -1609,8 +1642,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 											' TODO: Add 'MegaPacket' pooling.
 											Mega.Reset() ' Close()
 										Default
-											If (HasCallback) Then
-												Callback.OnMegaPacketRequestFailed(Self, Mega)
+											If (HasMegaPacketCallback) Then
+												MegaPacketCallback.OnMegaPacketRequestFailed(Self, Mega)
 											Endif
 											
 											' Our message was rejected, clean up:
@@ -1627,9 +1660,9 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 									Mega = C.GetWaitingMegaPacket(MegaID)
 									
 									If (Mega <> Null) Then
-										If (HasCallback) Then
+										If (HasMegaPacketCallback) Then
 											If (ResponseCode = MEGA_PACKET_RESPONSE_ABORT) Then
-												Callback.OnMegaPacketRequestAborted(Self, Mega)
+												MegaPacketCallback.OnMegaPacketRequestAborted(Self, Mega)
 											Endif
 										Endif
 										
@@ -1711,7 +1744,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 											Return MSG_TYPE_ERROR
 										Elseif (Chunks < LinkCount) Then
 											' Too few, could be a safety thing, check if we can do this:
-											If (HasCallback And Callback.OnMegaPacketDownSize(Self, Mega)) Then
+											If (HasMegaPacketCallback And MegaPacketCallback.OnMegaPacketDownSize(Self, Mega)) Then
 												' The receiver said we were sending too much, clip some data:
 												For Local I:= 1 To (LinkCount - Chunks)
 													Mega.ReleaseTopPacket()
@@ -1845,8 +1878,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			
 			' Check if the message is complete:
 			If (Mega.PacketsReceived >= PacketCount) Then ' =
-				If (HasCallback) Then
-					Callback.OnMegaPacketFinished(Self, Mega)
+				If (HasMegaPacketCallback) Then
+					MegaPacketCallback.OnMegaPacketFinished(Self, Mega)
 				Endif
 				
 				' Make sure to seek back to the beginning, just in case.
@@ -1880,7 +1913,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			Return False
 		Endif
 		
-		If (HasCallback) Then
+		If (HasMetaCallback) Then
 			#Rem
 				Local UserData:= AllocatePacket()
 				
@@ -1892,7 +1925,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		
 			Local UserData:= P
 			
-			Callback.OnReceiveMessage(Self, C, Type, UserData, DataSize)
+			MetaCallback.OnReceiveMessage(Self, C, Type, UserData, DataSize)
 			
 			'ReleasePacket(UserData)
 		Endif
@@ -2420,8 +2453,31 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return Self._MultiConnection
 	End
 	
+	' This specifies if this network has at least one callback.
 	Method HasCallback:Bool() Property
-		Return (Callback <> Null)
+		If (HasCoreCallback) Then Return True
+		If (HasMetaCallback) Then Return True
+		If (HasClientCallback) Then Return True
+		If (HasMegaPacketCallback) Then Return True
+		
+		' Return the default response.
+		Return False
+	End
+	
+	Method HasCoreCallback:Bool() Property
+		Return (CoreCallback <> Null)
+	End
+	
+	Method HasMetaCallback:Bool() Property
+		Return (MetaCallback <> Null)
+	End
+	
+	Method HasClientCallback:Bool() Property
+		Return (ClientCallback <> Null)
+	End
+	
+	Method HasMegaPacketCallback:Bool() Property
+		Return (MegaPacketCallback <> Null)
 	End
 	
 	Method HasClient:Bool() Property
@@ -2546,8 +2602,11 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	' For clients, the first entry should be the host.
 	Field Clients:List<Client>
 	
-	' Used to route call-back routines.
-	Field Callback:NetworkListener
+	' These are used to execute callback routines:
+	Field CoreCallback:CoreNetworkListener
+	Field MetaCallback:MetaNetworkListener
+	Field ClientCallback:ClientNetworkListener
+	Field MegaPacketCallback:MegaPacketNetworkListener
 	
 	' This is used internally to handle extra "async-receive-threads".
 	'Field ExtraReceiveOperations:Int

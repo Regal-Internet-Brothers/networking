@@ -8,27 +8,30 @@ Strict
 Public
 
 ' Preprocessor related:
+'#CURSOR_DEMO_REFLECTION_TEST = True
+
 #CURSOR_DEMO_CRAZY_MODE = False ' True
 
 ' If enabled, this could cause timeouts.
 #MOJO_AUTO_SUSPEND_ENABLED = False
 
 ' GLFW related:
-#GLFW_USE_MINGW=True
+#GLFW_WINDOW_TITLE = "Cursor Networking Demo"
+#GLFW_WINDOW_WIDTH = 640
+#GLFW_WINDOW_HEIGHT = 480
+#GLFW_WINDOW_RESIZABLE = True
 
-#GLFW_WINDOW_TITLE="Monkey Game"
-#GLFW_WINDOW_WIDTH=640
-#GLFW_WINDOW_HEIGHT=480
-#GLFW_WINDOW_SAMPLES=0
-#GLFW_WINDOW_RESIZABLE=True
-#GLFW_WINDOW_DECORATED=True
-#GLFW_WINDOW_FLOATING=False
-#GLFW_WINDOW_FULLSCREEN=False
+#If CURSOR_DEMO_REFLECTION_TEST
+	#REFLECTION_FILTER = "networking"
+#End
 
 ' Imports:
 Import mojo
-
 Import brl.stream
+
+#If CURSOR_DEMO_REFLECTION_TEST
+	Import reflection
+#End
 
 Import networking
 
@@ -99,7 +102,7 @@ Class Game Extends App Implements NetworkListener Final
 		
 		Network.Host(Port, True, PROTOCOL)
 		
-		Print("Hosting server...")
+		Print("Hosting server on port " + Port + " using " + NetworkEngine.ProtocolToString(PROTOCOL) + "...")
 		
 		Return
 	End
