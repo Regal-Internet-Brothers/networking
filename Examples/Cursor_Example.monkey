@@ -8,7 +8,7 @@ Strict
 Public
 
 ' Preprocessor related:
-#CURSOR_DEMO_CRAZY_MODE = True
+#CURSOR_DEMO_CRAZY_MODE = False ' True
 
 ' If enabled, this could cause timeouts.
 #MOJO_AUTO_SUSPEND_ENABLED = False
@@ -72,11 +72,11 @@ Class Game Extends App Implements NetworkListener Final
 	' Constructor(s):
 	Method OnCreate:Int()
 		SetUpdateRate(0)
-		SetSwapInterval(0)
+		'SetSwapInterval(0)
 		
 		Players = New List<Player>()
 		
-		SendTime = 50 ' Milliseconds.
+		SendTime = 50 ' 33.333 ' 50 ' Milliseconds.
 		
 		' Return the default response.
 		Return 0
@@ -629,8 +629,8 @@ Class Player Abstract
 	End
 	
 	Method Read:Void(S:Stream)
-		X = S.ReadFloat()
-		Y = S.ReadFloat()
+		DstX = S.ReadFloat()
+		DstY = S.ReadFloat()
 		
 		Return
 	End
@@ -666,6 +666,8 @@ Class Player Abstract
 	Field X:Float = 0.0
 	Field Y:Float = 0.0
 	
+	Field DstX:Float, DstY:Float
+	
 	' Color (Defaults to white):
 	Field R:Float = 255.0
 	Field G:Float = 255.0
@@ -698,7 +700,10 @@ Class NetPlayer Extends Player Final
 	
 	' Methods:
 	Method Update:Void()
-		' Nothing so far.
+		Const Speed:= 0.25
+		
+		X -= ((X - DstX) * Speed)
+		Y -= ((Y - DstY) * Speed)
 		
 		Return
 	End
