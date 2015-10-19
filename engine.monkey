@@ -109,6 +109,10 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	' Constant variable(s):
 	Const PORT_AUTOMATIC:= 0
 	
+	' Socket types:
+	Const SOCKET_TYPE_UDP:= 0
+	Const SOCKET_TYPE_TCP:= 1
+	
 	' Defaults:
 	Const Default_PacketSize:= 4*1024 ' 8*1024 ' 4096 ' 8192
 	Const Default_PacketPoolSize:= 4
@@ -2013,6 +2017,25 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return
 	End
 	
+	Method SendTitleMessage:Void(InternalType:MessageType, Address:NetworkAddress, Async:Bool=True)
+		' Not exactly efficient, but it works:
+		Local DataSegment:= AllocatePacket()
+		
+		' Write only the internal message header.
+		WriteInternalMessageHeader(DataSegment, InternalType)
+		
+		' Build an output packet for internal use.
+		Local P:= BuildOutputMessage(DataSegment, MSG_TYPE_INTERNAL)
+		
+		' From this point on 'P' is handled internally.
+		RawSend(Connection, P, Address, False)
+		
+		' Release our data-segment stream.
+		ReleasePacket(DataSegment)
+		
+		Return
+	End
+	
 	Method SendConnectMessage:Void(Async:Bool=False)
 		SendTitleMessage(INTERNAL_MSG_CONNECT, True, Async)
 		
@@ -2049,20 +2072,21 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	#Rem
-	Method SendMegaPacketRequest:Void(MP:MegaPacket, Reliable:Bool=True, Async:Bool=True)
-		Local P:= AllocatePacket()
-		
-		WriteInternalMessageHeader(P, INTERNAL_MSG_REQUEST_MEGA_PACKET)
-		
-		WritePacketID(P, MP.ID)
-		WriteNetSize(P, MP.LinkCount)
-		
-		Send(P, MSG_TYPE_INTERNAL, Reliable, Async) ' 'SendWith' wouldn't work for this.
-		
-		ReleasePacket(P)
-		
-		Return
-	End
+		' Potential for a future overload; multi-endpoint version:
+		Method SendMegaPacketRequest:Void(MP:MegaPacket, Reliable:Bool=True, Async:Bool=True)
+			Local P:= AllocatePacket()
+			
+			WriteInternalMessageHeader(P, INTERNAL_MSG_REQUEST_MEGA_PACKET)
+			
+			WritePacketID(P, MP.ID)
+			WriteNetSize(P, MP.LinkCount)
+			
+			Send(P, MSG_TYPE_INTERNAL, Reliable, Async) ' 'SendWith' wouldn't work for this.
+			
+			ReleasePacket(P)
+			
+			Return
+		End
 	#End
 	
 	' This should only be used to confirm a 'MegaPacket', not to request one. ('MP' does not have a destination)
@@ -2274,18 +2298,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	#End
 	
 	Method SendForceDisconnect:Void(Address:NetworkAddress)
-		' Not exactly efficient, but it works:
-		Local DataSegment:= AllocatePacket()
-		
-		WriteInternalMessageHeader(DataSegment, INTERNAL_MSG_DISCONNECT)
-		
-		Local P:= BuildOutputMessage(DataSegment, MSG_TYPE_INTERNAL)
-		
-		' From this point on 'P' is handled internally.
-		RawSend(Connection, P, Address, False)
-		
-		' Release our data-segment stream.
-		ReleasePacket(DataSegment)
+		SendTitleMessage(INTERNAL_MSG_DISCONNECT, Address, False) ' True
 		
 		Return
 	End

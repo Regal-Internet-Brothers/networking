@@ -31,10 +31,6 @@ Alias PacketExtAction = Int ' MessageType
 Class NetworkSerial Abstract
 	' Constant variable(s):
 	
-	' Socket types:
-	Const SOCKET_TYPE_UDP:= 0
-	Const SOCKET_TYPE_TCP:= 1
-	
 	' Message types:
 	Const MSG_TYPE_ERROR:= -1
 	Const MSG_TYPE_INTERNAL:= 0
