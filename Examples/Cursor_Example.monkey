@@ -36,7 +36,7 @@ Import brl.stream
 Import networking
 
 ' Classes:
-Class Game Extends App Implements NetworkListener Final
+Class Game Extends App Implements CoreNetworkListener, MetaNetworkListener, ClientNetworkListener Final
 	' Constant variable(s):
 	Const PORT:= 27015 ' 5029
 	
@@ -89,7 +89,9 @@ Class Game Extends App Implements NetworkListener Final
 	Method InitNetwork:Void()
 		Network = New NetworkEngine()
 		
-		Network.SetCallback(Self)
+		Network.SetCoreCallback(Self)
+		Network.SetMetaCallback(Self)
+		Network.SetClientCallback(Self)
 		
 		' Just for the sake of doing it, set the current random-seed.
 		Seed = Millisecs()
@@ -537,35 +539,6 @@ Class Game Extends App Implements NetworkListener Final
 		Print("Disconnected.")
 		
 		Return
-	End
-	
-	' 'MegaPacket' callback layer:
-	Method OnMegaPacketRequestAccepted:Void(Network:NetworkEngine, MP:MegaPacket)
-		Return
-	End
-	
-	Method OnMegaPacketRequestSucceeded:Void(Network:NetworkEngine, MP:MegaPacket)
-		Return
-	End
-	
-	Method OnMegaPacketRequestFailed:Void(Network:NetworkEngine, MP:MegaPacket)
-		Return
-	End
-	
-	Method OnMegaPacketRequestAborted:Void(Network:NetworkEngine, MP:MegaPacket)
-		Return
-	End
-	
-	Method OnMegaPacketFinished:Void(Network:NetworkEngine, MP:MegaPacket)
-		Return
-	End
-	
-	Method OnMegaPacketSent:Void(Network:NetworkEngine, MP:MegaPacket)
-		Return
-	End
-	
-	Method OnMegaPacketDownSize:Bool(Network:NetworkEngine, MP:MegaPacket)
-		Return False
 	End
 	
 	' Fields:
