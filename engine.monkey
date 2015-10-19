@@ -37,6 +37,47 @@ Public
 Alias ProtocolType = Int ' Byte
 
 ' Interfaces:
+
+' This provides lower level notifications, such as bind results, and completion of (Any) send operation(s).
+Interface CoreNetworkListener
+	' Methods:
+	Method OnNetworkBind:Void(Network:NetworkEngine, Successful:Bool)
+	
+	' The 'P' object represents the "real" 'Packet' that was sent. (Unlike 'OnReceiveMessage')
+	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:NetworkAddress, BytesSent:Int)
+End
+
+' This is used for "meta" notifications, like user-level messages, or network-disconnection.
+Interface MetaNetworkListener
+	' Methods:
+	
+	' The 'Message' object will be automatically released, and should not be closed.
+	' The 'MessageSize' argument specifies how many bytes are in the data-segment of 'Message'.
+	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Stream, MessageSize:Int)
+	
+	' This is called when 'Network' is disconnected.
+	' This exists primarily for clients that have disconnected.
+	' That being said, this is not exclusive to clients.
+	Method OnDisconnected:Void(Network:NetworkEngine)
+End
+
+' This is used to receive notifications of, and to moderate the behaviors of 'Clients'.
+Interface ClientNetworkListener
+	' Methods:
+	
+	' This is called when a client attempts to connect.
+	' The return-value of this command dictates if the client at 'Address' should be accepted.
+	Method OnClientConnect:Bool(Network:NetworkEngine, Address:NetworkAddress)
+	
+	' This is called once, at any time after 'OnClientConnect'.
+	Method OnClientAccepted:Void(Network:NetworkEngine, C:Client)
+	
+	' This is called when a client disconnects.
+	' This will not be called for client-networks, only hosts.
+	Method OnClientDisconnected:Void(Network:NetworkEngine, C:Client)
+End
+
+' This is used to receive notifications regarding the states of 'MegaPackets'.
 Interface MegaPacketNetworkListener
 	' Methods:
 	
@@ -62,42 +103,6 @@ Interface MegaPacketNetworkListener
 	
 	' This asks if 'MP' should be cut down. (If unsure, return 'False')
 	Method OnMegaPacketDownSize:Bool(Network:NetworkEngine, MP:MegaPacket)
-End
-
-Interface CoreNetworkListener
-	' Methods:
-	Method OnNetworkBind:Void(Network:NetworkEngine, Successful:Bool)
-	
-	' The 'P' object represents the "real" 'Packet' that was sent. (Unlike 'OnReceiveMessage')
-	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:NetworkAddress, BytesSent:Int)
-End
-
-Interface ClientNetworkListener
-	' Methods:
-	
-	' This is called when a client attempts to connect.
-	' The return-value of this command dictates if the client at 'Address' should be accepted.
-	Method OnClientConnect:Bool(Network:NetworkEngine, Address:NetworkAddress)
-	
-	' This is called once, at any time after 'OnClientConnect'.
-	Method OnClientAccepted:Void(Network:NetworkEngine, C:Client)
-	
-	' This is called when a client disconnects.
-	' This will not be called for client-networks, only hosts.
-	Method OnClientDisconnected:Void(Network:NetworkEngine, C:Client)
-End
-
-Interface MetaNetworkListener
-	' Methods:
-	
-	' The 'Message' object will be automatically released, and should not be closed.
-	' The 'MessageSize' argument specifies how many bytes are in the data-segment of 'Message'.
-	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Stream, MessageSize:Int)
-	
-	' This is called when 'Network' is disconnected.
-	' This exists primarily for clients that have disconnected.
-	' That being said, this is not exclusive to clients.
-	Method OnDisconnected:Void(Network:NetworkEngine)
 End
 
 Interface NetworkListener Extends CoreNetworkListener, MetaNetworkListener, ClientNetworkListener, MegaPacketNetworkListener
@@ -389,9 +394,33 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	Method SetCallback:Void(Callback:NetworkListener)
+		SetCoreCallback(Callback)
+		SetMetaCallback(Callback)
+		SetClientCallback(Callback)
+		SetMegaPacketCallback(Callback)
+		
+		Return
+	End
+	
+	Method SetCoreCallback:Void(Callback:CoreNetworkListener)
 		Self.CoreCallback = Callback
+		
+		Return
+	End
+	
+	Method SetMetaCallback:Void(Callback:MetaNetworkListener)
 		Self.MetaCallback = Callback
+		
+		Return
+	End
+	
+	Method SetClientCallback:Void(Callback:ClientNetworkListener)
 		Self.ClientCallback = Callback
+		
+		Return
+	End
+	
+	Method SetMegaPacketCallback:Void(Callback:MegaPacketNetworkListener)
 		Self.MegaPacketCallback = Callback
 		
 		Return
@@ -2535,7 +2564,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	' Fields (Private):
 	Private
 	
-	' A pool of 'Packets'; used for async I/O.
+	' A pool of 'Packets'; used for async I/O. This is
+	' private because it has an appropriate API layer.
 	Field PacketGenerator:BasicPacketPool
 	
 	Public
