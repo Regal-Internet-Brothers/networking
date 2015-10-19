@@ -125,7 +125,7 @@ Class BasicPacketPool Extends PacketPool<Packet> Final
 	Protected
 	
 	Method GeneratePacket:Packet() Property
-		Return (New Packet(PacketSize, FixByteOrder, True))
+		Return (New Packet(PacketSize, FixByteOrder, False))
 	End
 	
 	Public
@@ -165,7 +165,7 @@ Class ReliablePacketPool Extends PacketPool<ReliablePacket> Final
 	Protected
 	
 	Method GeneratePacket:ReliablePacket() Property
-		Return (New ReliablePacket(PacketSize, FixByteOrder, True))
+		Return (New ReliablePacket(PacketSize, FixByteOrder, False))
 	End
 	
 	Public

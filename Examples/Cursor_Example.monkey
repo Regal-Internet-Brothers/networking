@@ -40,8 +40,8 @@ Class Game Extends App Implements NetworkListener Final
 	' Constant variable(s):
 	Const PORT:= 27015 ' 5029
 	
-	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
-	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
+	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
+	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
 	
 	' Message types:
 	Const MSG_TYPE_WELCOME:= NetworkEngine.MSG_TYPE_CUSTOM
@@ -179,6 +179,8 @@ Class Game Extends App Implements NetworkListener Final
 	
 	' Gameplay update routine:
 	Method Update:Void()
+		Network.Update()
+		
 		For Local P:= Eachin Players
 			P.Update()
 		Next
@@ -188,7 +190,7 @@ Class Game Extends App Implements NetworkListener Final
 				If (Millisecs()-SendTimer >= SendTime) Then
 					If (Network.IsClient) Then
 						SendPlayerState(LocalCursor)
-					Else
+					Elseif (Network.HasClient) Then
 						SendPlayerStatesInBulk()
 					Endif
 					

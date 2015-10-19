@@ -31,12 +31,22 @@ Class Packet Extends PublicDataStream
 	End
 	
 	' Constructor(s):
-	Method New(Size:Int, FixByteOrder:Bool=Default_BigEndianStorage, SizeLimit:Int=NOLIMIT)
-		Super.New(Size, FixByteOrder, False, SizeLimit)
+	
+	#Rem
+		The 'AutoClose' argument specifies if a call to
+		'Release' is allowed to close this packet-stream.
+	#End
+	
+	Method New(Size:Int, FixByteOrder:Bool=Default_BigEndianStorage, AutoClose:Bool=True)
+		Super.New(Size, FixByteOrder, False, NOLIMIT)
+		
+		Self.AutoClose = AutoClose
 	End
 	
-	Method New(Message:String, Encoding:String="utf8", FixByteOrder:Bool=Default_BigEndianStorage, SizeLimit:Int=NOLIMIT)
-		Super.New(SizeOfString(Message), FixByteOrder, False, SizeLimit)
+	Method New(Message:String, Encoding:String="utf8", FixByteOrder:Bool=Default_BigEndianStorage, AutoClose:Bool=True)
+		Super.New(SizeOfString(Message), FixByteOrder, False, NOLIMIT)
+		
+		Self.AutoClose = AutoClose
 		
 		Data.PokeString(0, Message, Encoding)
 		
@@ -44,9 +54,9 @@ Class Packet Extends PublicDataStream
 	End
 	
 	' Destructor(s):
-	Method ForceClose:Void()
-		' Call ths super-class's 'Close' routine.
-		Super.Close()
+	Method ForceReset:Void()
+		' Call ths super-class's 'Reset' routine.
+		Super.Reset()
 		
 		' Reset the reference-counter.
 		Self.RefCount = 0
@@ -54,11 +64,11 @@ Class Packet Extends PublicDataStream
 		Return
 	End
 	
-	Method Close:Void()
+	Method Reset:Void()
 		RefCount -= 1
 		
 		If (RefCount < 1) Then
-			ForceClose() ' Super.Close()
+			ForceReset() ' Super.Reset()
 		Endif
 		
 		Return
@@ -74,12 +84,26 @@ Class Packet Extends PublicDataStream
 	' The return-value of this method specifies
 	' if this packet is no longer referenced.
 	Method Release:Bool()
+		' Safety check:
+		If (Released) Then
+			Return True
+		Endif
+		
 		RefCount -= 1
 		
-		Return Released
+		If (Released) Then
+			If (AutoClose) Then
+				Close()
+			Endif
+			
+			Return True
+		Endif
+		
+		' Return the default response.
+		Return False
 	End
 	
-	' Properties:
+	' Properties (Public):
 	Method Released:Bool() Property
 		Return (RefCount <= 0)
 	End
@@ -87,6 +111,21 @@ Class Packet Extends PublicDataStream
 	Method IsReliable:Bool() Property
 		Return False
 	End
+	
+	Method AutoClose:Bool() Property
+		Return Self._AutoClose
+	End
+	
+	' Properties (Protected):
+	Protected
+	
+	Method AutoClose:Void(Input:Bool) Property
+		Self._AutoClose = Input
+		
+		Return
+	End
+	
+	Public
 	
 	' Fields (Public):
 	' Nothing so far.
@@ -96,6 +135,9 @@ Class Packet Extends PublicDataStream
 	
 	Field RefCount:Int = 0
 	
+	' Booleans / Flags:
+	Field _AutoClose:Bool
+	
 	Public
 End
 
@@ -104,18 +146,20 @@ Class ReliablePacket Extends Packet Final
 	Const PACKET_ID_NONE:PacketID = 0
 	
 	' Constructor(s):
-	Method New(Size:Int, FixByteOrder:Bool=Default_BigEndianStorage, SizeLimit:Int=NOLIMIT)
+	Method New(Size:Int, FixByteOrder:Bool=Default_BigEndianStorage, AutoClose:Bool=True)
 		' Call the super-class's implementation.
-		Super.New(Size, FixByteOrder, SizeLimit)
+		Super.New(Size, FixByteOrder, AutoClose)
 	End
 	
 	' Destructor(s):
-	Method ForceClose:Void()
+	Method ForceReset:Void()
 		' Call the super-class's implementation.
-		Super.ForceClose()
+		Super.ForceReset()
 		
 		' Set the internal identifier back to default.
 		Self._ID = PACKET_ID_NONE
+		
+		Self.TimesReSent = 0
 		
 		Return
 	End
@@ -124,7 +168,9 @@ Class ReliablePacket Extends Packet Final
 	Method Resend:Void(Network:NetworkEngine)
 		ResetResendTimer()
 		
-		Network.Send(Self)
+		Network.Send(Self, (TimesReSent < 2))
+		
+		TimesReSent += 1
 		
 		Return
 	End
@@ -205,6 +251,8 @@ Class ReliablePacket Extends Packet Final
 	Field _Destination:Client
 	
 	Field _ID:PacketID = PACKET_ID_NONE
+	
+	Field TimesReSent:Int
 	
 	Field ResendTimer:TimePoint
 	'Field LifeTimer:TimePoint

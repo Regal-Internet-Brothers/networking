@@ -179,7 +179,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Const Default_PacketPoolSize:= 4
 	
 	Const Default_PacketReleaseTime:Duration = 1500 ' Milliseconds.
-	Const Default_PacketResendTime:Duration = 120 ' 40 ' Milliseconds.
+	Const Default_PacketResendTime:Duration = 200 ' 40 ' Milliseconds.
 	Const Default_PingFrequency:Duration = 1000 ' Milliseconds.
 	
 	Const Default_MaxChunksPerMegaPacket:= 2048 ' 8MB (At 4096 bytes per packet)
@@ -500,11 +500,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return Connect(New NetworkAddress(Host, Port), Async, Protocol)
 	End
 	
-	Method Update:Void(AsyncEvents:Bool=False)
-		If (AsyncEvents) Then
-			UpdateAsyncEvents()
-		Endif
-		
+	Method Update:Void()
 		If (Not Open) Then
 			Return
 		Endif
@@ -593,7 +589,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	#End
 	
 	' This overload is used to re-send a reliable packet.
-	Method Send:Void(RP:ReliablePacket, Async:Bool=False) ' True
+	Method Send:Void(RP:ReliablePacket, Async:Bool=True) ' False
 		AutoSendRaw(RP, RP.Destination, Async)
 		
 		Return
