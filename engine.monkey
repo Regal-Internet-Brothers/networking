@@ -2093,15 +2093,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Method SendMegaPacketConfirmation:Void(MP:MegaPacket, Reliable:Bool=True, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
-		WriteInternalMessageHeader(P, INTERNAL_MSG_MEGA_PACKET_RESPONSE)
-		
-		WritePacketID(P, MP.ID)
-		
-		WritePacketExtResponse(P, MEGA_PACKET_RESPONSE_ACCEPT)
-		
-		' Let the other end know we're
-		' talking about their 'MegaPacket'.
-		WriteBool(P, True)
+		Write_MegaPacket_Response(P, MP, INTERNAL_MSG_MEGA_PACKET_RESPONSE, True)
 		
 		SendWithMegaPacket(P, MP, MSG_TYPE_INTERNAL, Reliable, Async)
 		
@@ -2113,14 +2105,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Method SendMegaPacketClose:Void(MP:MegaPacket, IsTheirPacket:Bool=True, Reliable:Bool=True, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
-		WriteInternalMessageHeader(P, INTERNAL_MSG_MEGA_PACKET_RESPONSE)
-		
-		WritePacketID(P, MP.ID)
-		
-		WritePacketExtResponse(P, MEGA_PACKET_RESPONSE_CLOSE)
-		
-		' For details, view the object-less overload of this command.
-		WriteBool(P, IsTheirPacket)
+		Write_MegaPacket_Response(P, MP, MEGA_PACKET_RESPONSE_CLOSE, IsTheirPacket)
 		
 		SendWithMegaPacket(P, MP, MSG_TYPE_INTERNAL, Reliable, Async)
 		
@@ -2139,15 +2124,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Method SendMegaPacketRejection:Void(ID:PacketID, Reason:PacketExtResponse, IsTheirPacket:Bool, C:Client, Reliable:Bool=True, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
-		WriteInternalMessageHeader(P, INTERNAL_MSG_MEGA_PACKET_RESPONSE)
-		
-		WritePacketID(P, ID)
-		
-		WritePacketExtResponse(P, Reason)
-		
-		' Let the other end know which packet we're
-		' talking about, in the event of a conflict.
-		WriteBool(P, IsTheirPacket)
+		Write_MegaPacket_Response(P, ID, Reason, IsTheirPacket)
 		
 		Send(P, C, MSG_TYPE_INTERNAL, Reliable, Async)
 		
@@ -2159,14 +2136,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Method SendMegaPacketRejection:Void(MP:MegaPacket, Reason:PacketExtResponse, IsTheirPacket:Bool, Reliable:Bool=True, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
-		WriteInternalMessageHeader(P, INTERNAL_MSG_MEGA_PACKET_RESPONSE)
-		
-		WritePacketID(P, MP.ID)
-		
-		WritePacketExtResponse(P, MEGA_PACKET_RESPONSE_ABORT)
-		
-		' For details, view the object-less overload of this command.
-		WriteBool(P, IsTheirPacket)
+		Write_MegaPacket_Response(P, MP, MEGA_PACKET_RESPONSE_ABORT, IsTheirPacket)
 		
 		SendWithMegaPacket(P, MP, MSG_TYPE_INTERNAL, Reliable, Async)
 		
@@ -2180,7 +2150,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Method SendStandaloneMegaPacketAction:Void(MP:MegaPacket, Action:PacketExtAction, IsTheirPacket:Bool, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
-		Write_MegaPacket_Action_Header(P, MP, Action, IsTheirPacket)
+		Write_MegaPacket_Action(P, MP, Action, IsTheirPacket)
 		
 		SendWithMegaPacket(P, MP, MSG_TYPE_INTERNAL, True, Async)
 		
@@ -2193,7 +2163,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Method SendMegaPacketChunkLoadRequest:Void(MP:MegaPacket, IsTheirPacket:Bool, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
-		Write_MegaPacket_Action_Header(P, MP, MEGA_PACKET_ACTION_REQUEST_CHUNK_LOAD, IsTheirPacket)
+		Write_MegaPacket_Action(P, MP, MEGA_PACKET_ACTION_REQUEST_CHUNK_LOAD, IsTheirPacket)
 		
 		WriteNetSize(P, MP.LinkCount)
 		
@@ -2207,7 +2177,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Method SendMegaPacketChunkResize:Void(MP:MegaPacket, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
-		Write_MegaPacket_Action_Header(P, MP, MEGA_PACKET_ACTION_CHUNK_RESIZE, True)
+		Write_MegaPacket_Action(P, MP, MEGA_PACKET_ACTION_CHUNK_RESIZE, True)
 		
 		WriteNetSize(P, Min(MP.LinkCount, MaxChunksPerMegaPacket))
 		
@@ -2223,7 +2193,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Method SendMegaPacketChunkRequest:Void(MP:MegaPacket, Link:Int, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
-		Write_MegaPacket_Action_Header(P, MP, MEGA_PACKET_ACTION_REQUEST_CHUNK, True)
+		Write_MegaPacket_Action(P, MP, MEGA_PACKET_ACTION_REQUEST_CHUNK, True)
 		
 		WriteNetSize(P, Link)
 		

@@ -167,8 +167,29 @@ Class NetworkSerial Abstract
 	' Methods (Protected):
 	Protected
 	
+	' This writes the main segment of a mega-packet response message.
+	' This operation includes the internal-message header:
+	Method Write_MegaPacket_Response:Void(P:Stream, ID:PacketID, Reason:PacketExtResponse, IsTheirPacket:Bool)
+		WriteInternalMessageHeader(P, INTERNAL_MSG_MEGA_PACKET_RESPONSE)
+		WritePacketID(P, ID)
+		WritePacketExtResponse(P, Reason)
+		
+		' Let the other end know which packet we're
+		' talking about, in the event of a conflict.
+		WriteBool(P, IsTheirPacket)
+		
+		Return
+	End
+	
+	Method Write_MegaPacket_Response:Void(P:Stream, MP:MegaPacket, Reason:PacketExtResponse, IsTheirPacket:Bool)
+		Write_MegaPacket_Response(P, MP.ID, Reason, IsTheirPacket)
+		
+		Return
+	End
+	
+	' This writes the main segment of a mega-packet action message.
 	' This operation includes the internal-message header.
-	Method Write_MegaPacket_Action_Header:Void(P:Stream, MP:MegaPacket, Action:PacketExtAction, IsTheirPacket:Bool)
+	Method Write_MegaPacket_Action:Void(P:Stream, MP:MegaPacket, Action:PacketExtAction, IsTheirPacket:Bool)
 		WriteInternalMessageHeader(P, INTERNAL_MSG_MEGA_PACKET_ACTION)
 		
 		WritePacketID(P, MP.ID)
