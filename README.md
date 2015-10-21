@@ -5,11 +5,6 @@ This was built as an easy to use API that allows you to serialize and deserializ
 
 **For an excellent example of how this module is used, and how you can abstract I/O from networking, view the ["cursor demo"](/Examples/Cursor_Example.monkey).** That demo follows several good practices for game networking. For basic message I/O, [this demo](/Examples/Basic_Send_Example.monkey) should help. And for "mega packet" (File) I/O, [this](/Examples/Network_File_Test.monkey) is a solid reference.
 
-## API Disclaimer:
-This module acts as a successor to the ['regalnet'](https://bitbucket.org/ImmutableOctet/regalnet) module, development of which has been discontinued. This module aims to replace that module, though it is not API, or binary compatible with it.
-
-Functionality provided in this repository was *(Until recently)* very experimental. Though this is now an officially supported module, it is still in relatively early development, and may still see some API changes. That being said, this should be stable enough for most use-cases. Use this module at your own risk. Long-term API compatibility may be assumed, but some implementation details may change. Feel free to stick with older versions if newer commits are unstable. I'm still unsure if I'm going to need multiple branches or not. In the event I do, it will likely be named "experimental", and cover new features.
-
 ## Features:
 * **Protocol agnostic (TCP or UDP)**; as long as both ends use the same protocol, there should be no code changes. (Please use reliable messages where necessary, even when using TCP)
 
@@ -26,6 +21,11 @@ Functionality provided in this repository was *(Until recently)* very experiment
 * **Decide who connects, and when**; filter allowed addresses, only allow a single client, or limit the number of connections yourself.
 
 * **Extend the framework**; most routines are *protected*, meaning any extending class can use them. Write packets yourself, handle internal messages, and add features. Everything is open source, and open to extension.
+
+## API Disclaimer:
+This module acts as a successor to the ['regalnet'](https://bitbucket.org/ImmutableOctet/regalnet) module, development of which has been discontinued. This module aims to replace that module, though it is not API, or binary compatible with it.
+
+Functionality provided in this repository was *(Until recently)* very experimental. Though this is now an officially supported module, it is still in relatively early development, and may still see some API changes. That being said, this should be stable enough for most use-cases. Use this module at your own risk. Long-term API compatibility may be assumed, but some implementation details may change. Feel free to stick with older versions if newer commits are unstable. I'm still unsure if I'm going to need multiple branches or not. In the event I do, it will likely be named "experimental", and cover new features.
 
 ### Notes:
 *UDP-reliability has been considered working for a long time, though advanced stability testing has yet to be done.*
