@@ -1,0 +1,11 @@
+# Module networking.serial
+
+# Import networking
+# Import networking.packet
+# Import networking.megapacket
+
+# Import brl.socket
+
+# Class NetworkSerial Abstract
+
+This is an internal base-class for [[NetworkEngine]], that provides useful I/O routines.

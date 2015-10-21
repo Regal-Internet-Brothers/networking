@@ -5,10 +5,9 @@
 # Import networking.packet
 # Import networking.client
 
-
 The 'networking' module provides a data-oriented network I/O framework atop the internet transport layer, supporting both TCP and UDP.
 
 Packet-data is enclosed within a custom protocol, with slight alterations based on the underlying transport method.
 This protocol supports features like client management, reliable messaging (UDP), and extended (Multi-part) packets.
 
-To use this module in your applications, simply import 'networking' at the top of your program.
+To use this module in your applications, simply import 'networking' at the top of your program. Examples can be found in the main source directory.

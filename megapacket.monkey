@@ -112,7 +112,7 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 	' Methods (Public):
 	
 	#Rem
-		This allocates a 'Packet' using the 'Network',
+		This allocates a 'Packet' using the 'Network' property,
 		then adds it internally. Please mark the beginning
 		of the 'Packet' this generates. (Unless handled through retrieval)
 		
@@ -162,6 +162,7 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		Return True
 	End
 	
+	' This will write packet meta-data based on the input. (See 'ExtendAndMark' for details)
 	Method MarkCurrentPacket:Void(LinkNumber:Int, TotalLinks:Int)
 		' Serialize the storage details:
 		NetworkEngine.WritePacketID(Self, ID)
@@ -180,6 +181,7 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		Return
 	End
 	
+	' This marks every internal packet appropriately.
 	Method MarkPackets:Void(Offset:Int=0)
 		Local CurrentLink:= Self.Link
 		Local LinkCount:= Self.LinkCount

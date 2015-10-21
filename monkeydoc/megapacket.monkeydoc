@@ -5,8 +5,6 @@ For details, view the [[MegaPacket]] class's description.
 # Import networking.packet
 # Import networking.engine
 
-# Import brl.stream
-
 # Class MegaPacket Extends SpecializedChainStream<Packet>
 
 A [[MegaPacket]] is a "chain stream" of [[Packet]] objects. Basically, this means it can stitch together several [[Packet]] objects, and use them as makeshift buffers. As you write to a [[MegaPacket]], it will automatically allocate [[Packet]] objects from its parent [[NetworkEngine]]. As it allocates, each [[Packet]] will receive a header, detailing its section meta-data. Once this is done, any data you write, or data that couldn't originally be written to the last [[Packet]], will then be written to the newly aquired [[Packet]] object. The new packet then becomes the current [[Stream]], and all operations will affect that packet. When you're finished writing to the [[MegaPacket]], you can call [[NetworkEngine.Send]] with a [[NetworkEngine]] object, which will automatically handle the semantics of streaming to your destination. The [[MegaPacket]] you sent will then be handled internally, until it is finally relinquished when the operation completes. [[MegaPacket]] objects are usually sent in blocks, as described by the receiving end, meaning the [[Packet]] objects on the other end are queued up until all piece are present. This message-staging is done using a [[MegaPacket]] object on the other end, managed by a [[NetworkEngine]]. When the message is finalized, the [[MegaPacket]] will be used as a [[Stream]], and presented as the message-type used when it was sent from the original node.
@@ -27,4 +25,103 @@ The @Destination argument specifies the sending node's [[Client]] handle.
 
 The @ReleaseRights argument specifies if this object has the right to call [[Packet.Release]] on the packets it allocates and/or holds.
 
+# Method New(Network:NetworkEngine, ReleaseRights:Bool=True)
 
+This constructs a [[MegaPacket]] for deployment purposes.
+This will generate a default packet, and mark it appropriately.
+
+The @Network argument will act as the parent to this [[MegaPacket]], and will be queried for [[Packet]] handles.
+Like the retrieval overload, the @ReleaseRights argument is used to control releasing the packets this governs.
+
+
+# Method Reset:Void()
+
+This is just a wrapper for [[Close]] at the moment.
+
+# Method Close:Void()
+
+This overrides the super-class's 'Close' implementation.
+This is akin to the [[Stream]] class's [[Stream.Close]] method.
+
+This will release all internal packet handles if given closure rights.
+
+# Method ForceClose:Void()
+
+This will only force-close the chain if [[CanCloseStreams]] is enabled. (Privided by the parent class; basically "ReleaseRights")
+Obviously, this will not re-use the packet-streams like [[Close]] would. In addition, this will not use the 100% proper control-path for packet-release.
+
+
+# Method Extend:Packet()
+
+This is a (Mostly) internal routine, usage is not recommended unless you know what you're doing.
+
+This allocates a [[Packet]] using [[Network]], then adds it internally.
+Please mark the beginning of the [[Packet]] this generates. (Unless handled through retrieval)
+
+This should be marked from this class, not the [[Packet]] returned.
+
+# Method ExtendAndMark:Bool(MoveLink:Bool=True)
+
+When calling this method, please be aware that the current position is used to mark the stream.
+This means you should only call this when at the end of a [[Packet]] thus, starting a new one with the proper markings.
+
+It's best to let this class handle this for you.
+
+The @MoveLink argument is considered "unsafe", and should only be used externally for debugging purposes.
+
+# Method MarkCurrentPacket:Void(LinkNumber:Int, TotalLinks:Int)
+
+This will write packet meta-data based on the input.
+
+See [[ExtendAndMark]] for details.
+
+Method MarkCurrentPacket:Void()
+
+This will use the current [[Link]] and [[LinkCount]] as inputs for the [[MarkCurrentPacket|main implementation]].
+
+See [[ExtendAndMark]] for details.
+
+# Method MarkPackets:Void(Offset:Int=0)
+
+This marks every internal packet appropriately. (Called internally after writing has finished)
+
+# Method Write:Int(Buffer:DataBuffer, Offset:Int, Count:Int)
+
+This overrides the super-class's implementation. Basically, this handles over-stepping and of course, data transfer.
+This follows the [[Stream]] class's abstract [[Stream.Write]] method's documented behavior.
+
+
+# Method ID:PacketID() Property
+
+This acts as the unique identifier applied to this [[MegaPacket]].
+Whenever this "packet" needs to be referenced over the network, this is used to do it.
+This is assigned internally by a [[NetworkEngine]] when sending.
+
+This property has protected assignment-access.
+
+# Method Type:MessageType() Property
+
+This describes the type used to send this [[MegaPacket]].
+This is assigned internally by a [[NetworkEngine]] when sending.
+
+This property has protected assignment-access.
+
+# Method PacketsReceived:Int() Property
+
+This describes the number of packet chunks/pieces received.
+This is assigned internally by a [[NetworkEngine]] when receiving.
+
+This property has protected assignment-access.
+
+# Method Network:NetworkEngine() Property
+
+This corresponds to the parent specified when creating this object.
+
+This property has protected assignment-access.
+
+# Method Destination:Client() Property
+
+This is the destination associated with this [[MegaPacket]]
+This is assigned internally by a [[NetworkEngine]] when sending.
+
+This property has protected assignment-access.

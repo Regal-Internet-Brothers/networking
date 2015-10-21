@@ -1,0 +1,10 @@
+# Module networking.packetpool
+
+# Import networking.packet
+# Import networking.megapacket
+
+# Import brl.socket
+
+# Class PacketPool<PacketType> Abstract
+
+This is an internal base-class for [[BasicPacketPool]] and [[ReliablePacketPool]], providing common functionality.

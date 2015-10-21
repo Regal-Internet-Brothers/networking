@@ -119,12 +119,7 @@ This is called by [[NetworkEngine]] objects (Usually passing themselves as @Netw
 # Method Destination:Client() Property
 
 This represents a [[Client]] object supplied by a [[NetworkEngine]]. This is supplied through the assignment-overload.
-
-# Method Destination:Void(Input:Client) Property
-
-This acts as the assignment overload for the internal destination.
-
-Assignment is considered unsafe if this [[ReliablePacket]] is already being managed by a [[NetworkEngine]]; use at your own risk.
+This property has protected assignment-access. Assignment is considered unsafe if this [[ReliablePacket]] is already being managed by a [[NetworkEngine]]; use at your own risk.
 
 # Method ID:PacketID() Property
 

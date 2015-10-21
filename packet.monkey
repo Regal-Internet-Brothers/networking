@@ -203,12 +203,6 @@ Class ReliablePacket Extends Packet Final
 		Return Self._Destination
 	End
 	
-	Method Destination:Void(Input:Client) Property
-		Self._Destination = Input
-		
-		Return
-	End
-	
 	Method ID:PacketID() Property
 		Return Self._ID
 	End
@@ -217,8 +211,14 @@ Class ReliablePacket Extends Packet Final
 		Return True
 	End
 	
-	' Properties (Private):
-	Private
+	' Properties (Protected):
+	Protected
+	
+	Method Destination:Void(Input:Client) Property
+		Self._Destination = Input
+		
+		Return
+	End
 	
 	Method ID:Void(Input:PacketID) Property
 		#Rem
@@ -241,10 +241,10 @@ Class ReliablePacket Extends Packet Final
 	Public
 	
 	' Fields (Public):
-	'Field 
+	' Nothing so far.
 	
-	' Fields (Private):
-	Private
+	' Fields (Protected):
+	Protected
 	
 	Field _Destination:Client
 	
