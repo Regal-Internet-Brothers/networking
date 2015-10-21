@@ -43,7 +43,7 @@ This is used internally, and is used to force a [[Packet]] to reset its meta-dat
 
 # Method Reset:Void()
 
-This is used to decrement the internal reference-counter. When all references are relinquished, this will call [[ForceReset]]. This is mostly an internal routine; use at your own risk. If you intend to manage [[Packet]] objects yourself, this can be useful. But, if you're using pre-generated [[Packet]] from a [[NetworkEngine]], use [[NetworkEngine.ReleasePacket]] (Or similar) instead.
+This is used to decrement the internal reference-counter. When all references are relinquished, this will call [[ForceReset]]. This is mostly an internal routine; use at your own risk. If you intend to manage [[Packet]] objects yourself, this can be useful. But, if you're using pre-generated [[Packet]]s from a [[NetworkEngine]], use [[NetworkEngine.ReleasePacket]] (Or similar) instead.
 
 See also:
 

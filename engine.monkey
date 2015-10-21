@@ -41,6 +41,8 @@ Alias ProtocolType = Int ' Byte
 ' This provides lower level notifications, such as bind results, and completion of (Any) send operation(s).
 Interface CoreNetworkListener
 	' Methods:
+	
+	' This is called when a network bind-operation completes.
 	Method OnNetworkBind:Void(Network:NetworkEngine, Successful:Bool)
 	
 	' The 'P' object represents the "real" 'Packet' that was sent. (Unlike 'OnReceiveMessage')
@@ -56,8 +58,6 @@ Interface MetaNetworkListener
 	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Stream, MessageSize:Int)
 	
 	' This is called when 'Network' is disconnected.
-	' This exists primarily for clients that have disconnected.
-	' That being said, this is not exclusive to clients.
 	Method OnDisconnected:Void(Network:NetworkEngine)
 End
 

@@ -13,6 +13,89 @@ This acts as the main implementation-module, import [[networking]] (Ideally) or 
 
 # Class ProtocolType Extends Int
 
+
+# Interface CoreNetworkListener
+
+This provides lower level notifications, such as bind results, and completion of (Any) send operation(s).
+
+# Method OnNetworkBind:Void(Network:NetworkEngine, Successful:Bool)
+
+This is called when a network bind-operation completes.
+
+# Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:NetworkAddress, BytesSent:Int)
+
+The @P object represents the "real" [[Packet]] that was sent. (Unlike [[MetaNetworkListener.OnReceiveMessage]])
+
+# Interface MetaNetworkListener
+
+This is used for "meta" notifications, like user-level messages, or network-disconnection.
+
+# Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Stream, MessageSize:Int)
+
+The @Message object will be automatically released, and should not be closed.
+The @MessageSize argument specifies how many bytes are in the data-segment of @Message.
+
+# Method OnDisconnected:Void(Network:NetworkEngine)
+
+This is called when @Network has disconnected.
+
+# Interface ClientNetworkListener
+
+This is used to receive notifications of, and to moderate the behaviors of [[Client]] objects.
+
+# Method OnClientConnect:Bool(Network:NetworkEngine, Address:NetworkAddress)
+
+This is called when a client attempts to connect.
+The return-value of this command dictates if the client at @Address should be accepted.
+
+# Method OnClientAccepted:Void(Network:NetworkEngine, C:Client)
+
+Assuming @C was accepted in a previous call to [[OnClientConnect]], this will be called.
+
+# Method OnClientDisconnected:Void(Network:NetworkEngine, C:Client)
+
+This is called when a [[Client]] disconnects.
+This will not be called for client-networks, only hosts.
+
+# Interface MegaPacketNetworkListener
+
+This is used to receive notifications regarding the states of [[MegaPacket]] objects.
+
+# Method OnMegaPacketRequestAccepted:Void(Network:NetworkEngine, MP:MegaPacket)
+
+This is called when a remote [[MegaPacket]] request is accepted on this end.
+
+# Method OnMegaPacketRequestSucceeded:Void(Network:NetworkEngine, MP:MegaPacket)
+
+This is called when a [[MegaPacket]] request your end sent is accepted.
+Not necessarily accepted for chunk I/O, though, see [[MEGA_PACKET_ACTION_REQUEST_CHUNK_LOAD]].
+
+# Method OnMegaPacketRequestFailed:Void(Network:NetworkEngine, MP:MegaPacket)
+
+This is called when a pending [[MegaPacket]] has been rejected by the other end.
+
+# Method OnMegaPacketRequestAborted:Void(Network:NetworkEngine, MP:MegaPacket)
+
+This is called on both ends, and signifies a failure by means of an "abort".
+
+# Method OnMegaPacketFinished:Void(Network:NetworkEngine, MP:MegaPacket)
+
+This is called when a [[MegaPacket]] is finished. (Fully built from the data we received)
+This will be called before [[NetworkEngine.ReadMessageBody]] is executed.
+
+# Method OnMegaPacketSent:Void(Network:NetworkEngine, MP:MegaPacket)
+
+This is called when a [[MegaPacket]] is done being sent.
+
+# Method OnMegaPacketDownSize:Bool(Network:NetworkEngine, MP:MegaPacket)
+
+This asks if @MP should be cut down. (If unsure, return 'False')
+
+# Interface NetworkListener Extends CoreNetworkListener, MetaNetworkListener, ClientNetworkListener, MegaPacketNetworkListener
+
+This acts as a "macro" for those who want to use every "NetworkListener" interface.
+
+
 # Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptComplete, IOnConnectComplete, IOnSendComplete, IOnSendToComplete, IOnReceiveFromComplete, IOnReceiveComplete
 
 A [[NetworkEngine]] acts as your connection or "node" in the network. At present, a [[NetworkEngine]] can be a client or a host. These documents regard "nodes" as abstract entry-points to the network. In other words, clients or hosts, or potentially actual nodes (Peer-to-peer will eventually be looked into).
