@@ -3,7 +3,7 @@ A data-oriented networking framework for the [Monkey programming language](https
 
 This was built as an easy to use API that allows you to serialize and deserialize data using the internet transport layer (TCP & UDP). This framework handles the lower level side of networking; client management, packet semantics, etc. This allows you to focus on the I/O aspects of your game's networking, rather than the protocol behavior. Everything's done using standard 'Stream' objects, meaning any standard input or output routine could be used on a packet-stream.
 
-**For an excellent example of how this module is used, and how you can abstract I/O from networking, view the ["cursor demo"](/Examples/Cursor_Example.monkey).** That demo follows several good practices for game networking. For basic message I/O, [this demo](/Examples/Basic_Send_Example.monkey) should help. And for "mega packet" (File) I/O, [this](/Examples/Network_File_Test.monkey) is a solid reference.
+The documentation for this project is unfinished, but the current [draft can be found here](http://regal-internet-brothers.github.io/networking). **For an excellent example of how this module is used, and how you can abstract I/O from networking, view the ["cursor demo"](/Examples/Cursor_Example.monkey).** That demo follows several good practices for game networking. For basic message I/O, [this demo](/Examples/Basic_Send_Example.monkey) should help. And for "mega packet" (File) I/O, [this](/Examples/Network_File_Test.monkey) is a solid reference.
 
 ## Features:
 * **Protocol agnostic (TCP or UDP)**; as long as both ends use the same protocol, there should be no code changes. (Please use reliable messages where necessary, even when using TCP)
