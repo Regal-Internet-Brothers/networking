@@ -85,9 +85,11 @@ Class Packet Extends PublicDataStream
 	' if this packet is no longer referenced.
 	Method Release:Bool()
 		' Safety check:
-		If (Released) Then
-			Return True
-		Endif
+		#Rem
+			If (Released) Then
+				Return True
+			Endif
+		#End
 		
 		RefCount -= 1
 		
@@ -161,6 +163,8 @@ Class ReliablePacket Extends Packet Final
 		
 		Self.TimesReSent = 0
 		
+		Self.Destination = Null
+		
 		Return
 	End
 	
@@ -183,22 +187,6 @@ Class ReliablePacket Extends Packet Final
 		Return
 	End
 	
-	' Properties (Public):
-	Method Destination:Client() Property
-		Return Self._Destination
-	End
-	
-	' Properties (Protected):
-	Protected
-	
-	Method Destination:Void(Input:Client) Property
-		Self._Destination = Input
-		
-		Return
-	End
-	
-	Public
-	
 	' Methods (Private):
 	Private
 	
@@ -211,6 +199,16 @@ Class ReliablePacket Extends Packet Final
 	Public
 	
 	' Properties (Public):
+	Method Destination:Client() Property
+		Return Self._Destination
+	End
+	
+	Method Destination:Void(Input:Client) Property
+		Self._Destination = Input
+		
+		Return
+	End
+	
 	Method ID:PacketID() Property
 		Return Self._ID
 	End

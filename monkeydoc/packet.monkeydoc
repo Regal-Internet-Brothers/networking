@@ -1,0 +1,141 @@
+# Module networking.packet
+
+# Import networking.engine
+# Import networking.client
+
+# Import brl.stream
+# Import brl.databuffer
+
+# Class Packet Extends PublicDataStream
+
+[[Packet]] objects act as standard [[Stream]] objects, providing structured memory manipulation. They are seekable, and used both internally and externally. Closing a [[Packet]] allocated by a [[NetworkEngine]] is considered bad practice, and will result in unstable behavior if released formally.
+
+# Const Default_BigEndianStorage:Bool
+
+The default setting for network byte-order.
+
+
+# Function SizeOfString:Int(S:String)
+
+An internal function used to retrieve the projected (Serialized) size of @S.
+
+
+# Method New(Size:Int, FixByteOrder:Bool=Default_BigEndianStorage, AutoClose:Bool=True)
+
+The @Size argument specifies the maximum size of this [[Packet]].
+The @FixByteOrder argument determines if byte-swapping will be used.
+The @AutoClose argument specifies if a call to [[Release]] is allowed to close this packet-stream.
+
+# Method New(Message:String, Encoding:String="utf8", FixByteOrder:Bool=Default_BigEndianStorage, AutoClose:Bool=True)
+
+The @Message argument specifies the message-data initially provided to this [[Packet]]. [[Packets]] are not currently resizable, so this will represent the entire message.
+
+The @Encoding argument specifies the standard encoding mode; see [[DataBuffer.PokeString]] for details.
+
+The @FixByteOrder argument determines if byte-swapping will be used.
+
+Like the other overload(s), the @AutoClose argument specifies if [[Release]] is allowed to close this packet-stream.
+
+
+# Method ForceReset:Void()
+
+This is used internally, and is used to force a [[Packet]] to reset its meta-data.
+
+# Method Reset:Void()
+
+This is used to decrement the internal reference-counter. When all references are relinquished, this will call [[ForceReset]]. This is mostly an internal routine; use at your own risk. If you intend to manage [[Packet]] objects yourself, this can be useful. But, if you're using pre-generated [[Packet]] from a [[NetworkEngine]], use [[NetworkEngine.ReleasePacket]] (Or similar) instead.
+
+See also:
+
+[[Obtain]], [[ForceReset]]
+
+
+# Method Obtain:Void()
+
+This is used to "obtain a reference" (Increment a reference counter) to this [[Packet]]. When finished using a [[Packet]] after calling this, please call [[Reset]]. Do not call this unless you intend to keep a [[Packet]] alive. Calling [[NetworkEngine.ReleasePacket]] before calling [[Reset]] is considered bad practice.
+
+See also:
+
+[[Reset]], [[ForceReset]]
+
+# Method Release:Bool()
+
+Unlike a pool, this does not handle re-use. This will decrement the internal reference-counter.
+If that counter hits zero, this will perform a [[Stream.Close]] operation. Because of this, calling [[Release]] is considered unsafe, and should be avoided unless you intend to manage packets yourself.
+
+The return-value of this method specifies if this packet is no longer referenced.
+
+See also:
+
+[[Obtain]], [[Reset]], [[ForceReset]]
+
+
+# Method Released:Bool() Property
+
+This specifies if the internal reference-counter is zero.
+
+# Method IsReliable:Bool() Property
+
+This specifies if this is a reliable packet. (Used internally; always 'False' for normal [[Packet]] objects)
+
+# Method AutoClose:Bool() Property
+
+This corresponds to the 'AutoClose' argument in the constructor(s).
+
+See also:
+
+[[New]]
+
+
+# Class ReliablePacket Extends Packet Final
+
+Reliable packets hold raw packet data, which is sent using [[Resend]] to a [[Client]] via [[Destination]]. These are used internally by [[NetworkEngine]] objects, where management of [[Destination]] is done. It is not recommended to create instances of this class, unless you intend to right your own reliable/raw packet system. This class may not be extended.
+
+This is documented for the sake of understanding and/or extending the framework.
+
+# Method New(Size:Int, FixByteOrder:Bool=Default_BigEndianStorage, AutoClose:Bool=True)
+
+The @Size argument specifies the maximum size of the packet.
+The @FixByteOrder argument toggles network byte-order.
+The @AutoClose argument specifies if a call to [[Release]] is allowed to close this packet-stream.
+
+
+# Method ForceReset:Void()
+
+For details, see the [[Packet]] class's implementation: [[Packet.ForceReset]].
+
+
+# Method Resend:Void(Network:NetworkEngine)
+
+This resends the (Raw) contents of this packet to [[Destination]], using @Network.
+
+This will reset the internal resend-timer.
+
+# Method Update:Void(Network:NetworkEngine)
+
+This is called by [[NetworkEngine]] objects (Usually passing themselves as @Network) to automate things like calling [[Resend]]. Internally, [[ReliablePacket]] objects hold resend-timers, this routine manages this timer, and calls [[Resend]] accordingly.
+
+
+# Method Destination:Client() Property
+
+This represents a [[Client]] object supplied by a [[NetworkEngine]]. This is supplied through the assignment-overload.
+
+# Method Destination:Void(Input:Client) Property
+
+This acts as the assignment overload for the internal destination.
+
+Assignment is considered unsafe if this [[ReliablePacket]] is already being managed by a [[NetworkEngine]]; use at your own risk.
+
+# Method ID:PacketID() Property
+
+This specifies the identifier attached to this reliable packet. This is assigned by a [[NetworkEngine]], and is unique to this packet / its contents.
+
+This property has protected assignment-access.
+
+# Method IsReliable:Bool() Property
+
+This will always return 'True'.
+
+See also:
+
+The [[Packet]] class's [[Packet.IsReliable]] implementation.

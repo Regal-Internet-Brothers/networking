@@ -1,0 +1,125 @@
+# Module networking.client
+
+# Import networking.engine
+# Import networking.megapacket
+
+# Class Client
+
+[[Client]] objects are "descriptors", specifying how a [[NetworkEngine]] can reach an identified node in a network.
+[[Client]] objects are generated, stored, and disclosed by networks ([[NetworkEngine]]). References to [[Client]] objects are only valid until a network specifies that they are no longer connected/available. These notifications can be interpreted using a [[ClientNetworkListener]] (Callback), as specified in the '[[networking.engine]]' module.
+
+# Method New(Address:NetworkAddress, Connection:Socket=Null, PacketConfirmation:Bool=True)
+
+Constructors for [[Client]] objects are handled internally, and should only be used when extending this framework.
+
+This overload is used for protocols that are address-based, rather than socket-based. (UDP)
+That being said, this is also used internally by client [[NetworkEngine]] objects, for [[NetworkEngine.Remote]] (Only [[Client]] instance).
+
+The @Address argument specifies the remote address of the client.
+The @Connection argument is mainly available for debugging purposes / internal use.
+The @PacketConfirmation argument is described in [[Construct_Client]].
+
+# Method New(Connection:Socket, PacketConfirmation:Bool=False)
+
+Constructors for [[Client]] objects are handled internally, and should only be used when extending this framework.
+
+This overload is used for protocols that are socket-based, rather than address-based. (TCP)
+
+The @Connection argument is used to describe the [[Socket]] associated with this client.
+The @PacketConfirmation argument is described in [[Construct_Client]].
+
+# Method Construct_Client:Client(PacketConfirmation:Bool)
+
+This is an internal constructor used when constructing [[Client]] objects.
+
+The @PacketConfirmation argument specifies if this [[Client]] will be keeping track of packet identifiers. (Non-reliable protocols)
+
+This routine is protected, but documented for extension purposes.
+
+
+# Method Close:Void(ReleaseInternalData:Bool=False)
+
+This destructor is used internally. Please disconnect clients through their parent [[NetworkEngine]] objects.
+
+This will close a [[Socket]] if held by this object, invalidate the [[Address]] property, release any associated packet identifiers, and set relevant closure-flags.
+
+# Method Update:Void(Network:NetworkEngine)
+
+This is used to update a [[Client]] object. The main purpose of this is to handle reliable packet identifiers, and calculate the value of [[Ping]].
+
+# Method ProjectedPing:NetworkPing(Network:NetworkEngine)
+
+This returns the "projected ping" of this client, based on the criteria specified in @Network.
+"Projected pings" are approximate pings describing how long a client has been pinging. This number is not accurate unless the [[Pinging]] property reports 'True'.
+
+# Method ConfirmPacket:Bool(ID:PacketID)
+
+This will confirm packets with @ID as their identifier, but only if it hasn't already been identified.
+The return-value indicates if the operation failed.
+
+# Method ContainsPacket:Bool(ID:PacketID)
+
+This returns 'True' if @ID has already been confirmed.
+
+See also:
+
+[[ConfirmPacket]], [[Update]]
+
+
+# Method ReleaseNextPacketID:Void()
+
+This is an internal method that will automatically release the next packet identifier in the queue.
+
+This routine is protected, but documented for extension purposes.
+
+# Method Closing:Bool() Property
+
+This specifies if this client is in the process of disconnecting/closing.
+
+# Method Closing:Void(Input:Bool) Property
+
+Use caution when setting this property-overload. (Handled internally, use at your own risk)
+
+# Method Closed:Bool() Property
+
+This specifies if this client handle has been closed by a network and/or user.
+
+# Method ManagesPackets:Bool() Property
+
+This corresponds to the constructor argument of the same name.
+
+See also:
+
+[[New]], [[Construct_Client]]
+
+# Method Ping:NetworkPing() Property
+
+This specifies the last known ping of this client. This does not change while calculating a new ping.
+
+# Method Pinging:Bool() Property
+
+This specifies if this client is currently calculating a ping. The [[Ping]] property is still valid while this is 'True'.
+
+This property has protected assignment-access.
+
+# Method PingTimer:TimePoint() Property
+
+The last point in time used when pinging began.
+
+This property has protected assignment-access.
+
+See also:
+
+[[Pinging]], [[Ping]]
+
+# Method Address:NetworkAddress() Property
+
+The address associated with this client; may be 'Null' depending on the underlying transport protocol. (Available for UDP)
+
+See also:
+
+[[New]]
+
+# Method Connection:Socket() Property
+
+The [[Socket]] associated with this client; may be 'Null' depending on the underlying transport protocol. (Available for TCP)

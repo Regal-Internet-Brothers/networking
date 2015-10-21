@@ -40,8 +40,8 @@ Class Game Extends App Implements CoreNetworkListener, MetaNetworkListener, Clie
 	' Constant variable(s):
 	Const PORT:= 27015 ' 5029
 	
-	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
-	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
+	'Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_UDP
+	Const PROTOCOL:= NetworkEngine.SOCKET_TYPE_TCP
 	
 	' Message types:
 	Const MSG_TYPE_WELCOME:= NetworkEngine.MSG_TYPE_CUSTOM
@@ -394,7 +394,7 @@ Class Game Extends App Implements CoreNetworkListener, MetaNetworkListener, Clie
 		
 		WritePlayerStatesInBulk(P)
 		
-		Network.Send(P, MSG_TYPE_STATES_IN_BULK, True) ' False
+		Network.Send(P, MSG_TYPE_STATES_IN_BULK, False) ' True
 		
 		Network.ReleasePacket(P)
 		

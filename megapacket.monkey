@@ -35,7 +35,7 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		This does not start with a default 'Packet'.
 		
 		When using this constructor/purpose, please keep the
-		'ReleaseRights' in mind when handling 'Packet' objects.
+		'ReleaseRights' argument in mind when handling 'Packet' objects.
 	#End
 	
 	Method New(Network:NetworkEngine, ID:PacketID, Destination:Client=Null, ReleaseRights:Bool=True)
