@@ -7,7 +7,7 @@ For details, view the [[MegaPacket]] class's description.
 
 # Class MegaPacket Extends SpecializedChainStream<Packet>
 
-A [[MegaPacket]] is a "chain stream" of [[Packet]] objects. Basically, this means it can stitch together several [[Packet]] objects, and use them as makeshift buffers. As you write to a [[MegaPacket]], it will automatically allocate [[Packet]] objects from its parent [[NetworkEngine]]. As it allocates, each [[Packet]] will receive a header, detailing its section meta-data. Once this is done, any data you write, or data that couldn't originally be written to the last [[Packet]], will then be written to the newly aquired [[Packet]] object. The new packet then becomes the current [[Stream]], and all operations will affect that packet. When you're finished writing to the [[MegaPacket]], you can call [[NetworkEngine.Send]] with a [[NetworkEngine]] object, which will automatically handle the semantics of streaming to your destination. The [[MegaPacket]] you sent will then be handled internally, until it is finally relinquished when the operation completes. [[MegaPacket]] objects are usually sent in blocks, as described by the receiving end, meaning the [[Packet]] objects on the other end are queued up until all piece are present. This message-staging is done using a [[MegaPacket]] object on the other end, managed by a [[NetworkEngine]]. When the message is finalized, the [[MegaPacket]] will be used as a [[Stream]], and presented as the message-type used when it was sent from the original node.
+A [[MegaPacket]] is a "chain stream" of [[Packet]] objects. Basically, this means it can stitch together several [[Packet]] objects, and use them as makeshift buffers. As you write to a [[MegaPacket]], it will automatically allocate [[Packet]] objects from its parent [[NetworkEngine]]. As it allocates, each [[Packet]] will receive a header, detailing its section meta-data. Once this is done, any data you write, or data that couldn't originally be written to the last [[Packet]], will then be written to the newly aquired [[Packet]] object. The new packet then becomes the current [[Stream]], and all operations will affect that packet. When you're finished writing to the [[MegaPacket]], you can call [[NetworkEngine.Send]] with a [[NetworkEngine]] object, which will automatically handle the semantics of streaming to your destination. The [[MegaPacket]] you sent will then be handled internally, until it is finally relinquished when the operation completes. [[MegaPacket]] objects are usually sent in blocks, as described by the receiving end, meaning the [[Packet]] objects on the other end are queued up until all pieces are present. This message-staging is done using a [[MegaPacket]] object on the other end, managed by a [[NetworkEngine]]. When the message is finalized, the [[MegaPacket]] will be used as a [[Stream]], and presented as the message-type used when it was sent from the original node.
 
 # Method New(Network:NetworkEngine, ID:PacketID, Destination:Client=Null, ReleaseRights:Bool=True)
 
@@ -125,3 +125,12 @@ This is the destination associated with this [[MegaPacket]]
 This is assigned internally by a [[NetworkEngine]] when sending.
 
 This property has protected assignment-access.
+
+
+# Class MegaPacket_UnableToExtend Extends StreamError
+
+This is thrown when a [[MegaPacket]] fails to extend.
+
+# Method New(MP:MegaPacket)
+
+The @MP argument will be held internally for debugging purposes.

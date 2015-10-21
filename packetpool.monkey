@@ -17,7 +17,7 @@ Public
 Class PacketPool<PacketType> Abstract
 	' Constructor(s) (Public):
 	Method New(PacketSize:Int, PoolSize:Int, FixByteOrder:Bool)
-		Self._PacketSize = PacketSize
+		Self.PacketSize = PacketSize
 		Self.FixByteOrder = FixByteOrder
 		
 		BuildPool(PoolSize)
@@ -96,6 +96,12 @@ Class PacketPool<PacketType> Abstract
 		Return
 	End
 	
+	Method PacketSize:Void(Input:Int) Property
+		Self._PacketSize = Input
+		
+		Return
+	End
+	
 	Public
 	
 	' Fields (Protected):
@@ -124,7 +130,7 @@ Class BasicPacketPool Extends PacketPool<Packet> Final
 	' Methods (Protected):
 	Protected
 	
-	Method GeneratePacket:Packet() Property
+	Method GeneratePacket:Packet() ' Property
 		Return (New Packet(PacketSize, FixByteOrder, False))
 	End
 	
@@ -164,7 +170,7 @@ Class ReliablePacketPool Extends PacketPool<ReliablePacket> Final
 	' Methods (Protected):
 	Protected
 	
-	Method GeneratePacket:ReliablePacket() Property
+	Method GeneratePacket:ReliablePacket() ' Property
 		Return (New ReliablePacket(PacketSize, FixByteOrder, False))
 	End
 	

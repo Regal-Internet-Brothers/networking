@@ -8,3 +8,87 @@
 # Class PacketPool<PacketType> Abstract
 
 This is an internal base-class for [[BasicPacketPool]] and [[ReliablePacketPool]], providing common functionality.
+
+# Method New(PacketSize:Int, PoolSize:Int, FixByteOrder:Bool)
+
+The @PacketSize argument specifies the size all allocated packets will be.
+The @PoolSize argument specifies how many 'PacketType' objects will be allocated initially.
+The @FixByteOrder argument specifies if network byte-order will be used.
+
+# Method BuildPool:Void(PoolSize:Int)
+
+This is an internal constructor used to initialize the pool; @PoolSize specifies the number of initial objects.
+
+This constructor is protected.
+
+
+# Method GeneratePacket:PacketType() Abstract
+
+This is an abstract method used to generate a packet for internal management.
+
+This method is protected.
+
+# Method Allocate:PacketType()
+
+This obtains a packet, then returns it. (Reference-count management and [[GeneratePacket]])
+
+# Method Release:Bool(P:PacketType)
+
+This is used to release a handle to a 'PacketType' object.
+This will call [[Packet.Release]], but expects the object to remain usable.
+For details, see [[Packet.New|Packet.New]].
+
+# Method Contains:Bool(P:PacketType)
+
+This deduces if @P is contained by this pool.
+
+
+# Method FixByteOrder:Bool() Property
+
+This corresponds to the constructor argument of the same name.
+This property has protected assignment-access.
+
+See also: [[New]]
+
+# Method PacketSize:Int() Property
+
+This corresponds to the constructor argument of the same name.
+This property has protected assignment-access.
+
+See also: [[New]]
+
+
+# Class BasicPacketPool Extends PacketPool<Packet> Final
+
+# Method New(PacketSize:Int, PoolSize:Int, FixByteOrder:Bool)
+
+Interface-wise, this constructor works the same as [[PacketPool]]'s constructor.
+
+
+# Method GeneratePacket:Packet()
+
+This generates a [[Packet]] object for internal management.
+
+See also: [[PacketPool.GeneratePacket|PacketPool.GeneratePacket]]
+
+
+# Method InitialPoolSize:Int() Property
+
+This corresponds to the [[PoolSize]] constructor argument.
+This property has protected assignment-access.
+
+See also: [[New]]
+
+
+# Class ReliablePacketPool Extends PacketPool<ReliablePacket> Final
+
+# Method New(PacketSize:Int, PoolSize:Int, FixByteOrder:Bool)
+
+This is simply a proxy to the [[PacketPool.New|super-class's implementation]].
+
+
+# Method GeneratePacket:ReliablePacket()
+
+This generates a [[ReliablePacket]] object for internal management.
+
+See also: [[PacketPool.GeneratePacket|PacketPool.GeneratePacket]]

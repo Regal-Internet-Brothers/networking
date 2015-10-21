@@ -6,6 +6,13 @@
 
 # Import brl.socket
 
+# Class NetworkPing Extends Int
+# Class MessageType Extends Int
+
+# Class PacketID Extends Int
+# Class PacketExtResponse Extends Int
+# Class PacketExtAction Extends Int
+
 # Class NetworkSerial Abstract
 
 This is an internal base-class for [[NetworkEngine]], that provides useful I/O routines.

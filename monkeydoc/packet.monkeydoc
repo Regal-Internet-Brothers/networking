@@ -28,7 +28,7 @@ The @AutoClose argument specifies if a call to [[Release]] is allowed to close t
 
 # Method New(Message:String, Encoding:String="utf8", FixByteOrder:Bool=Default_BigEndianStorage, AutoClose:Bool=True)
 
-The @Message argument specifies the message-data initially provided to this [[Packet]]. [[Packets]] are not currently resizable, so this will represent the entire message.
+The @Message argument specifies the message-data initially provided to this [[Packet]]. [[Packet]] objects are not currently resizable, so this will represent the entire message.
 
 The @Encoding argument specifies the standard encoding mode; see [[DataBuffer.PokeString]] for details.
 
