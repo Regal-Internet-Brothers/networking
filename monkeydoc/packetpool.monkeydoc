@@ -11,9 +11,9 @@ This is an internal base-class for [[BasicPacketPool]] and [[ReliablePacketPool]
 
 # Method New(PacketSize:Int, PoolSize:Int, FixByteOrder:Bool)
 
-The @PacketSize argument specifies the size all allocated packets will be.
-The @PoolSize argument specifies how many 'PacketType' objects will be allocated initially.
-The @FixByteOrder argument specifies if network byte-order will be used.
+* The @PacketSize argument specifies the size all allocated packets will be.
+* The @PoolSize argument specifies how many 'PacketType' objects will be allocated initially.
+* The @FixByteOrder argument specifies if network byte-order will be used.
 
 # Method BuildPool:Void(PoolSize:Int)
 

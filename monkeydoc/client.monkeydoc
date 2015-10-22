@@ -15,9 +15,9 @@ Constructors for [[Client]] objects are handled internally, and should only be u
 This overload is used for protocols that are address-based, rather than socket-based. (UDP)
 That being said, this is also used internally by client [[NetworkEngine]] objects, for [[NetworkEngine.Remote]] (Only [[Client]] instance).
 
-The @Address argument specifies the remote address of the client.
-The @Connection argument is mainly available for debugging purposes / internal use.
-The @PacketConfirmation argument is described in [[Construct_Client]].
+* The @Address argument specifies the remote address of the client.
+* The @Connection argument is mainly available for debugging purposes / internal use.
+* The @PacketConfirmation argument is described in [[Construct_Client]].
 
 # Method New(Connection:Socket, PacketConfirmation:Bool=False)
 
@@ -25,14 +25,14 @@ Constructors for [[Client]] objects are handled internally, and should only be u
 
 This overload is used for protocols that are socket-based, rather than address-based. (TCP)
 
-The @Connection argument is used to describe the [[Socket]] associated with this client.
-The @PacketConfirmation argument is described in [[Construct_Client]].
+* The @Connection argument is used to describe the [[Socket]] associated with this client.
+* The @PacketConfirmation argument is described in [[Construct_Client]].
 
 # Method Construct_Client:Client(PacketConfirmation:Bool)
 
 This is an internal constructor used when constructing [[Client]] objects.
 
-The @PacketConfirmation argument specifies if this [[Client]] will be keeping track of packet identifiers. (Non-reliable protocols)
+* The @PacketConfirmation argument specifies if this [[Client]] will be keeping track of packet identifiers. (Non-reliable protocols)
 
 This routine is protected, but documented for extension purposes.
 

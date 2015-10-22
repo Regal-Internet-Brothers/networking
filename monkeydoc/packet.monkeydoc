@@ -22,17 +22,17 @@ An internal function used to retrieve the projected (Serialized) size of @S.
 
 # Method New(Size:Int, FixByteOrder:Bool=Default_BigEndianStorage, AutoClose:Bool=True)
 
-The @Size argument specifies the maximum size of this [[Packet]].
-The @FixByteOrder argument determines if byte-swapping will be used.
-The @AutoClose argument specifies if a call to [[Release]] is allowed to close this packet-stream.
+* The @Size argument specifies the maximum size of this [[Packet]].
+* The @FixByteOrder argument determines if byte-swapping will be used.
+* The @AutoClose argument specifies if a call to [[Release]] is allowed to close this packet-stream.
 
 # Method New(Message:String, Encoding:String="utf8", FixByteOrder:Bool=Default_BigEndianStorage, AutoClose:Bool=True)
 
-The @Message argument specifies the message-data initially provided to this [[Packet]]. [[Packet]] objects are not currently resizable, so this will represent the entire message.
+* The @Message argument specifies the message-data initially provided to this [[Packet]]. [[Packet]] objects are not currently resizable, so this will represent the entire message.
 
-The @Encoding argument specifies the standard encoding mode; see [[DataBuffer.PokeString]] for details.
+* The @Encoding argument specifies the standard encoding mode; see [[DataBuffer.PokeString]] for details.
 
-The @FixByteOrder argument determines if byte-swapping will be used.
+* The @FixByteOrder argument determines if byte-swapping will be used.
 
 Like the other overload(s), the @AutoClose argument specifies if [[Release]] is allowed to close this packet-stream.
 
@@ -95,9 +95,9 @@ This is documented for the sake of understanding and/or extending the framework.
 
 # Method New(Size:Int, FixByteOrder:Bool=Default_BigEndianStorage, AutoClose:Bool=True)
 
-The @Size argument specifies the maximum size of the packet.
-The @FixByteOrder argument toggles network byte-order.
-The @AutoClose argument specifies if a call to [[Release]] is allowed to close this packet-stream.
+* The @Size argument specifies the maximum size of the packet.
+* The @FixByteOrder argument toggles network byte-order.
+* The @AutoClose argument specifies if a call to [[Release]] is allowed to close this packet-stream.
 
 
 # Method ForceReset:Void()

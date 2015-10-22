@@ -17,20 +17,20 @@ This does not start with a default [[Packet]].
 When using this constructor/purpose, please keep the
 @ReleaseRights argument in mind when handling [[Packet]] objects.
 
-The @Network argument will act as the parent to this [[MegaPacket]], and will be queried for [[Packet]] handles.
+* The @Network argument will act as the parent to this [[MegaPacket]], and will be queried for [[Packet]] handles.
 
-The @ID argument specifies the packet identifier associated with this exact [[MegaPacket]]. (Not to be confused with the IDs used by normal [[Packet]] objects)
+* The @ID argument specifies the packet identifier associated with this exact [[MegaPacket]]. (Not to be confused with the IDs used by normal [[Packet]] objects)
 
-The @Destination argument specifies the sending node's [[Client]] handle.
+* The @Destination argument specifies the sending node's [[Client]] handle.
 
-The @ReleaseRights argument specifies if this object has the right to call [[Packet.Release]] on the packets it allocates and/or holds.
+* The @ReleaseRights argument specifies if this object has the right to call [[Packet.Release]] on the packets it allocates and/or holds.
 
 # Method New(Network:NetworkEngine, ReleaseRights:Bool=True)
 
 This constructs a [[MegaPacket]] for deployment purposes.
 This will generate a default packet, and mark it appropriately.
 
-The @Network argument will act as the parent to this [[MegaPacket]], and will be queried for [[Packet]] handles.
+* The @Network argument will act as the parent to this [[MegaPacket]], and will be queried for [[Packet]] handles.
 Like the retrieval overload, the @ReleaseRights argument is used to control releasing the packets this governs.
 
 
@@ -67,7 +67,7 @@ This means you should only call this when at the end of a [[Packet]] thus, start
 
 It's best to let this class handle this for you.
 
-The @MoveLink argument is considered "unsafe", and should only be used externally for debugging purposes.
+* The @MoveLink argument is considered "unsafe", and should only be used externally for debugging purposes.
 
 # Method MarkCurrentPacket:Void(LinkNumber:Int, TotalLinks:Int)
 
@@ -133,4 +133,4 @@ This is thrown when a [[MegaPacket]] fails to extend.
 
 # Method New(MP:MegaPacket)
 
-The @MP argument will be held internally for debugging purposes.
+* The @MP argument will be held internally for debugging purposes.

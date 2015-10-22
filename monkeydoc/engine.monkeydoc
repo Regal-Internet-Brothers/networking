@@ -6,10 +6,13 @@
 # Import networking.megapacket
 # Import networking.packetpool
 
+# Import eternity
+
 # Import brl.socket
 # Import brl.asyncevent
 
 This acts as the main implementation-module, import [[networking]] (Ideally) or this. For details, view the [[NetworkEngine]] class's documentation.
+
 
 # Class ProtocolType Extends Int
 
@@ -104,4 +107,107 @@ A [[NetworkEngine]] acts as your connection or "node" in the network. At present
 
 [[NetworkEngine]] objects handle the vast majority of what goes on behind the scenes, and they are responsible for the objects they emit. That being said, if an object is allocated via a pool, or similar system, it's up to the user to return the object(s) provided.
 
-This class's API is currently undocumented.
+
+# Const PORT_AUTOMATIC:Int
+
+This is used to request a port from the operating system, instead of supplying one manually.
+
+# Const SOCKET_TYPE_UDP:ProtocolType
+
+This is used to specify UDP as the underlying transport protocol.
+
+# Const SOCKET_TYPE_TCP:ProtocolType
+
+This is used to specify TCP as the underlying transport protocol.
+
+
+# Const Default_PacketSize:Int
+# Const Default_PacketPoolSize:Int
+
+# Const Default_PacketReleaseTime:Duration
+# Const Default_PacketResendTime:Duration
+# Const Default_PingFrequency:Duration
+
+# Const Default_MaxChunksPerMegaPacket:Int
+# Const Default_MaxPing:NetworkPing
+
+# Const Default_FixByteOrder:Bool
+# Const Default_MultiConnection:Bool
+# Const Default_ClientMessagesAfterDisconnect:Bool
+
+
+# Function AddressesEqual:Bool(X:NetworkAddress, Y:NetworkAddress)
+
+This compares @X and @Y, and returns 'True' if they are equal. (Deep compare)
+
+# Function ProtocolToString:String(Protocol:ProtocolType)
+
+This returns a string representation of @Protocol.
+
+| @Protocol Type  | @Output
+| SOCKET_TYPE_UDP | "UDP"
+| SOCKET_TYPE_TCP | "TCP"
+
+
+# Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PingFrequency:Duration=Default_PingFrequency, MaxPing:NetworkPing=Default_MaxPing, MaxChunksPerMegaPacket:Int=Default_MaxChunksPerMegaPacket, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime)
+
+* The @PacketSize argument specifies the size used for all internally allocated packets.
+* The @PacketPoolSize argument is used to generate initial packet-objects.
+* The @FixByteOrder argument toggles network byte-order for internally generated packets.
+* The @PingFrequency argument is used to determine how much time it takes between ping calculations.
+* The @MaxPing argument is used when determining if a [[Client]] has timed out.
+* The @MaxChunksPerMegaPacket argument is used to limit the number of [[Packet]] objects an incoming [[MegaPacket]] can be initialized with.
+* The @PacketReleaseTime argument is used to describe how long it takes for a [[Client]] to remove the next reliable packet's [[PacketID]]. (UDP / unreliable transport protocols)
+* The @PacketResendTime argument specifies how long it takes for this network to [[ReliablePacket.Resend|resend]] a [[ReliablePacket]].
+
+# Method GenerateNativeSocket:Void(ProtocolString:String="stream")
+
+This is used internally to generate the internal connection-socket, and close if necessary.
+
+This constructor is protected.
+
+# Method Init:Void(Protocol:ProtocolType, IsClient:Bool)
+
+This is a common internal "startup constructor", called whenever [[Connect]] or [[Host]] is called.
+This generates the internal socket via [[GenerateNativeSocket]].
+
+This constructor is protected.
+
+# Method InitReliablePackets:Void()
+
+This initializes reliable-packet functionality. (Pooling, management, etc)
+
+This constructor is protected.
+
+# Method InitMegaPackets:Void()
+
+This initializes mega-packet functionality.
+
+This constructor is protected.
+
+
+# Method Close:Void()
+
+This command manually closes this network.
+
+The network will automatically send remote connections a final unreliable message describing this action.
+In the case of TCP (Or similar; reliable transport), this will very likely make it to the other end, disconnecting very gracefully.
+
+When using UDP, this message is somewhat unlikely to make it to the destination(s).
+
+If this description message ([[INTERNAL_MSG_DISCONNECT]]) is not received, this client/host will timeout on the other end(s).
+This means that disconnection will happen regardless, but the elegance of this action is unlikely to be preserved. (Transport differences aside)
+
+To disconnect via a request, and in worst case scenarios, a timeout, use [[CloseAsync]]. (Ideal)
+
+# Method CloseAsync:Void()
+
+This command provides a means of gracefully disconnecting from a remote network.
+To manually disconnect from a network, use [[Close]].
+
+For clients, this is done through a reliable disconnection notice ([[INTERNAL_MSG_REQUEST_DISCONNECTION]]), and assuming closing status.
+The notice will be sent, then the usual behavior of [[Closing]] will be applied; limited message acceptance, eventual timeout/disconnection, etc.
+Ideally, we'd get a message back, and from there, automatically call [[Close]].
+
+For hosts, this will disconnect every client formally. It will then use the [[Terminating]] flag to check if all clients have disconnected.
+Once they have, the [[Close]] command will be called automatically.

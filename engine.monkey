@@ -327,7 +327,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		The notice will be sent, then the usual behavior of 'Closing' will be
 		applied; limited message acceptance, eventual timeout/disconnection, etc.
 		
-		Ideally, we'd get a message back, and from there, call 'Close'.
+		Ideally, we'd get a message back, and from there, automatically call 'Close'.
 		
 		For hosts, this will disconnect every client formally. It will then
 		use the 'Terminating' flag to check if all clients have disconnected.
