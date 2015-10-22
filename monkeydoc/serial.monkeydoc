@@ -5,6 +5,7 @@
 # Import networking.megapacket
 
 # Import brl.socket
+# Import brl.stream
 
 # Class NetworkPing Extends Int
 # Class MessageType Extends Int
@@ -15,4 +16,173 @@
 
 # Class NetworkSerial Abstract
 
-This is an internal base-class for [[NetworkEngine]], that provides useful I/O routines.
+This is an internal base-class for [[NetworkEngine]], that provides useful I/O routines. (Abstract)
+
+
+# Const MSG_TYPE_ERROR:MessageType
+
+This is used for debugging purposes. (Returned by [[NetworkEngine.ReadMessage]])
+
+# Const MSG_TYPE_INTERNAL:MessageType
+
+This type is used for internal protocol messages.
+
+# Const MSG_TYPE_CUSTOM:MessageType
+
+You may use this as a starting-point for message types.
+
+# Const INTERNAL_MSG_CONNECT:MessageType
+# Const INTERNAL_MSG_WARNING:MessageType
+# Const INTERNAL_MSG_DISCONNECT:MessageType
+# Const INTERNAL_MSG_REQUEST_DISCONNECTION:MessageType
+# Const INTERNAL_MSG_PACKET_CONFIRM:MessageType
+# Const INTERNAL_MSG_PING:MessageType
+# Const INTERNAL_MSG_PONG:MessageType
+# Const INTERNAL_MSG_REQUEST_MEGA_PACKET:MessageType
+# Const INTERNAL_MSG_MEGA_PACKET_RESPONSE:MessageType
+# Const INTERNAL_MSG_MEGA_PACKET_ACTION:MessageType
+
+# Const INITIAL_PACKET_ID:PacketID
+
+This acts as the first ID used for local [[Packet]] objects when sending.
+
+# Const INITIAL_MEGA_PACKET_ID:PacketID
+
+This acts as the first ID used for local [[MegaPacket]] objects when sending.
+
+# Const PACKET_HEADER_MARGIN:Int
+
+The largest possible size of a packet's header. (Used internally; experimental)
+
+# Const MEGA_PACKET_RESPONSE_TOO_MANY_CHUNKS:PacketExtResponse
+# Const MEGA_PACKET_RESPONSE_ACCEPT:PacketExtResponse
+# Const MEGA_PACKET_RESPONSE_ABORT:PacketExtResponse
+
+# Const MEGA_PACKET_RESPONSE_CLOSE:PacketExtResponse
+
+This specifies that the other end is done using one of our [[MegaPacket]] objects.
+
+# Const MEGA_PACKET_ACTION_REQUEST_CHUNK_LOAD:PacketExtAction
+
+This is used to begin a chunk load-sequence, once a [[MegaPacket]] has been confirmed/accepted on the remote end.
+
+If the other end allows chunk I/O for the [[MegaPacket]] we established,
+they will accept this request. If not, they may do one of the following:
+
+* Reject/abort the [[MegaPacket]].
+* Allow the [[MegaPacket]] to timeout.
+* Send a different request to deal with the problem. (May be unsupported)
+
+# Const MEGA_PACKET_ACTION_REQUEST_CHUNK:PacketExtAction
+
+This is used to request a chunk from a [[MegaPacket]] sent by a remote source.
+
+# Const MEGA_PACKET_ACTION_CHUNK_RESIZE:PacketExtAction
+
+This is used to specify a size-reform for a [[MegaPacket]] held by the other end.
+
+
+# Function ReadBool:Bool(S:Stream)
+
+This reads a [[Bool|boolean]] from @S.
+
+See also: [[WriteBool]]
+
+# Function WriteBool:Void(S:Stream, Value:Bool)
+
+This writes @Value to @S.
+
+See also: [[ReadBool]]
+
+# Function ReadMessageType:MessageType(S:Stream)
+
+This reads a [[MessageType]] from @S.
+
+See also: [[WriteMessageType]]
+
+# Function WriteMessageType:Void(S:Stream, InternalType:MessageType)
+
+This writes @InternalType to @S.
+
+See also: [[ReadMessageType]]
+
+# Function ReadPacketID:PacketID(S:Stream)
+
+This reads a [[PacketID]] from @S.
+
+See also: [[WritePacketID]]
+
+# Function WritePacketID:Void(S:Stream, ID:PacketID)
+
+This writes @ID to @S.
+
+See also: [[ReadPacketID]]
+
+# Function ReadPacketExtResponse:PacketExtResponse(S:Stream)
+
+This reads a [[PacketExtResponse]] from @S.
+
+See also: [[WritePacketExtResponse]]
+
+# Function WritePacketExtResponse:Void(S:Stream, Response:PacketExtResponse)
+
+This writes @Response to @S.
+
+See also: [[ReadPacketExtResponse]]
+
+# Function ReadPacketExtAction:PacketExtAction(S:Stream)
+
+This reads a [[PacketExtAction]] from @S.
+
+See also: [[WritePacketExtAction]]
+
+# Function WritePacketExtAction:Void(S:Stream, Action:PacketExtAction)
+
+This writes @Action to @S.
+
+See also: [[ReadPacketExtAction]]
+
+# Function WriteNetSize:Void(S:Stream, Size:Int)
+
+This writes @Size to @S.
+
+See also: [[ReadNetSize]]
+
+# Function ReadNetSize:Int(S:Stream)
+
+This reads an integer from @S of an internally defined size, and returns it.
+
+See also: [[WriteNetSize]]
+
+
+# Method Write_MegaPacket_Response:Void(P:Stream, ID:PacketID, Reason:PacketExtResponse, IsTheirPacket:Bool)
+
+This writes the main segment of a mega-packet response message to @P.
+This operation includes the internal-message header.
+
+This method is protected.
+
+# Method Write_MegaPacket_Response:Void(P:Stream, MP:MegaPacket, Reason:PacketExtResponse, IsTheirPacket:Bool)
+
+This uses @MP to satisfy the 'ID' argument of the [[Write_MegaPacket_Response|main overload]].
+
+This method is protected.
+
+# Method Write_MegaPacket_Action:Void(P:Stream, MP:MegaPacket, Action:PacketExtAction, IsTheirPacket:Bool)
+
+This writes the main segment of a mega-packet action message to @P.
+This operation includes the internal-message header.
+
+This method is protected.
+
+# Method ReadInternalMessageHeader:MessageType(P:Stream)
+
+This reads the header of an internal message from @P, returning its internal type.
+
+This method is protected.
+
+# Method WriteInternalMessageHeader:Void(P:Stream, InternalType:MessageType)
+
+This writes the header of an internal message of type @InternalType to @P.
+
+This method is protected.

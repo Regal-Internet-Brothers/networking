@@ -57,7 +57,7 @@ Interface MetaNetworkListener
 	' The 'MessageSize' argument specifies how many bytes are in the data-segment of 'Message'.
 	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Stream, MessageSize:Int)
 	
-	' This is called when 'Network' is disconnected.
+	' This is called when 'Network' has disconnected.
 	Method OnDisconnected:Void(Network:NetworkEngine)
 End
 

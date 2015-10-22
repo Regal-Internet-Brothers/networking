@@ -55,7 +55,7 @@ Class NetworkSerial Abstract
 	Const INITIAL_PACKET_ID:PacketID = 1
 	Const INITIAL_MEGA_PACKET_ID:PacketID = 1
 	
-	' The highest order size of a packet's header. (Used internally; experimental)
+	'The largest possible size of a packet's header. (Used internally; experimental)
 	Const PACKET_HEADER_MARGIN:= 64 ' 32 ' 48
 	
 	' Mega-packet response codes:
@@ -63,7 +63,7 @@ Class NetworkSerial Abstract
 	Const MEGA_PACKET_RESPONSE_ACCEPT:PacketExtResponse = 1
 	Const MEGA_PACKET_RESPONSE_ABORT:PacketExtResponse = 2
 	
-	' This specifies that the other end is done using one of our 'MegaPackets'.
+	' This specifies that the other end is done using one of our 'MegaPacket' objects.
 	Const MEGA_PACKET_RESPONSE_CLOSE:PacketExtResponse = 3
 	
 	' Mega-packet actions:
@@ -85,7 +85,7 @@ Class NetworkSerial Abstract
 	' This is used to request a chunk from a 'MegaPacket' sent by a remote source.
 	Const MEGA_PACKET_ACTION_REQUEST_CHUNK:PacketExtAction = 1
 	
-	' This is used to specify a size reform for a 'MegaPacket' to the original sending.
+	' This is used to specify a size-reform for a 'MegaPacket' held by the other end.
 	Const MEGA_PACKET_ACTION_CHUNK_RESIZE:PacketExtAction = 2
 	
 	' Unimplemented:

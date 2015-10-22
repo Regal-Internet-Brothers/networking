@@ -91,7 +91,7 @@ This is called when a [[MegaPacket]] is done being sent.
 
 This asks if @MP should be cut down. (If unsure, return 'False')
 
-# Interface NetworkListener Extends CoreNetworkListener, MetaNetworkListener, ClientNetworkListener, MegaPacketNetworkListener
+# Interface NetworkListener Implements CoreNetworkListener, MetaNetworkListener, ClientNetworkListener, MegaPacketNetworkListener
 
 This acts as a "macro" for those who want to use every "NetworkListener" interface.
 
