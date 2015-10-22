@@ -179,11 +179,15 @@ This initializes reliable-packet functionality. (Pooling, management, etc)
 
 This constructor is protected.
 
+See also: [[DeinitReliablePackets]]
+
 # Method InitMegaPackets:Void()
 
 This initializes mega-packet functionality.
 
 This constructor is protected.
+
+See also: [[DeinitMegaPackets]]
 
 
 # Method Close:Void()
@@ -211,3 +215,102 @@ Ideally, we'd get a message back, and from there, automatically call [[Close]].
 
 For hosts, this will disconnect every client formally. It will then use the [[Terminating]] flag to check if all clients have disconnected.
 Once they have, the [[Close]] command will be called automatically.
+
+# Method DeinitReliablePackets:Void()
+
+This deinitializes reliable-packet functionality.
+
+This destructor is protected.
+
+See also: [[InitReliablePackets]]
+
+# Method DeinitMegaPackets:Void()
+
+This deinitializes mega-packet functionality.
+
+This destructor is protected.
+
+See also: [[InitMegaPackets]]
+
+
+# Method ObjectEnumerator:list.Enumerator<Client>()
+
+This allows you to enumerate the connected [[Client]]s in this network.
+
+For clients, this will only supply [[Remote]], for hosts, this provides all connected [[Client]] handles.
+
+# Method SetCallback:Void(Callback:NetworkListener)
+
+This sets every callback handle to @Callback.
+
+See also: [[SetCoreCallback]], [[SetMetaCallback]], [[SetClientCallback]], [[SetMegaPacketCallback]]
+
+# Method SetCoreCallback:Void(Callback:CoreNetworkListener)
+
+This sets the core callback handle to @Callback.
+
+# Method SetMetaCallback:Void(Callback:MetaNetworkListener)
+
+This sets the meta callback handle to @Callback.
+
+# Method SetClientCallback:Void(Callback:ClientNetworkListener)
+
+This sets the client callback handle to @Callback.
+
+# Method SetMegaPacketCallback:Void(Callback:MegaPacketNetworkListener)
+
+This sets the mega-packet callback handle to @Callback.
+
+# Method Host:Bool(Port:Int, Async:Bool=False, Protocol:ProtocolType=SOCKET_TYPE_UDP, MultiConnection:Bool=Default_MultiConnection, Hostname:String="")
+
+This is used to host a network on @Port using @Protocol.
+Once hosting has started, please call [[Update]] regularly.
+When finished hosting, please call [[Close]] or [[CloseAsync]].
+
+* The @Port argument is used to bind the network-socket using @Hostname.
+* The @Async argument specifies if binding should be done asynchronously. (May be required on some targets)
+* The @Protocol argument describes the desired transport protocol.
+* The @MultiConnection argument dictates whether more than one connection is allowed.
+* The @Hostname argument is used when binding the internal socket. (If unsure, do not specify)
+
+The return value of this method states if hosting was successful.
+If @Async is enabled, the return value will not indicate success, only initial failure.
+Success would be determined using [[CoreNetworkListener.OnNetworkBind]].
+
+See also: [[Connect]], [[Close]], [[CloseAsync]]
+
+# Method Connect:Bool(Address:NetworkAddress, Async:Bool=False, Protocol:ProtocolType=SOCKET_TYPE_UDP)
+
+This is used to create a client network on @Port using @Protocol.
+Once a connection has been established, please call [[Update]] regularly.
+When you intend to end the network-session, please call [[Close]] or [[CloseAsync]].
+
+* The @Address argument is used to connect to a remote [[NetworkEngine]].
+* The @Async argument specifies if connection should be done asynchronously. (May be required on some targets)
+* The @Protocol argument describes the desired transport protocol.
+
+See also: [[Host]], [[Close]], [[CloseAsync]]
+
+# Method Connect:Bool(Host:String, Port:Int, Async:Bool=False, Protocol:ProtocolType=SOCKET_TYPE_UDP)
+
+This generates a [[NetworkAddress]] object from @Host and @Port, then calls the [[Connect|main implementation]] using the arguments specified.
+
+See also: [[Host]], [[Close]], [[CloseAsync]]
+
+# Method Update:Void()
+
+Call this every when you intend to update details of the network.
+For example, this routine calls [[UpdateClients]], which handles timeouts.
+
+If the network has yet to be opened, this will do nothing. (Always safe)
+
+# Method UpdateClients:Void()
+
+This routine handles all connected clients and their [[Client|handles]].
+This includes things like reliable-packet routines / calling the [[Client]] class's [[Client.Update]] method, checking for timeouts, etc.
+
+See also: [[Update]]
+
+# Method TimedOut:Bool(C:Client)
+
+This checks if @C has timed out. This framework reserves the right to ignore meta-data for this action when needed.
