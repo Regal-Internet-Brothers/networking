@@ -557,7 +557,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	#End
 	
 	' This overload is used to re-send a reliable packet.
-	Method Send:Void(RP:ReliablePacket, Async:Bool=True) ' False
+	Method Send:Void(RP:ReliablePacket, Async:Bool=False) ' True
 		AutoSendRaw(RP, RP.Destination, Async)
 		
 		Return
@@ -595,9 +595,6 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		DESCRIPTION:
 			* These overloads provide an easy to use
 			interface for sending 'MegaPacket' objects.
-		NOTES:
-			* Changing the 'Reliable' argument for these overloads is
-			considered bad practice. Use that argument at your own risk.
 	#End
 	
 	#Rem
@@ -806,6 +803,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return Output
 	End
 	
+	' Used internally; use at your own risk.
 	' This will take the contents of 'Data', transfer it
 	' to 'RP', as well as write any needed formatting.
 	' This allows you to use 'RP' as a normal system-managed packet.

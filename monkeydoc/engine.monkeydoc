@@ -8,10 +8,11 @@
 
 # Import eternity
 
+# Import monkey.list
 # Import brl.socket
 # Import brl.asyncevent
 
-This acts as the main implementation-module, import [[networking]] (Ideally) or this. For details, view the [[NetworkEngine]] class's documentation.
+This acts as the main implementation-module, import [[networking]] (Ideally) or this. For details, view the [[NetworkEngine]] class's documentation. This API reserves the right to ignore "Async" settings if necessary. In addition, argument defaults described by this documentation may not reflect the actual code, but will be present regardless of their real values. In other words, optional argument values may be different from document.
 
 
 # Class ProtocolType Extends Int
@@ -299,10 +300,12 @@ See also: [[Host]], [[Close]], [[CloseAsync]]
 
 # Method Update:Void()
 
-Call this every when you intend to update details of the network.
+Call this every time when you intend to update details of the network.
 For example, this routine calls [[UpdateClients]], which handles timeouts.
 
 If the network has yet to be opened, this will do nothing. (Always safe)
+
+See also: [[UpdateClients]]
 
 # Method UpdateClients:Void()
 
@@ -314,3 +317,249 @@ See also: [[Update]]
 # Method TimedOut:Bool(C:Client)
 
 This checks if @C has timed out. This framework reserves the right to ignore meta-data for this action when needed.
+
+# Method Send:Void(RP:ReliablePacket, Async:Bool=False)
+
+This sends a pre-serialized [[ReliablePacket]] object.
+
+@NOTE: This overload only applies to unreliable transport. (UDP, for example)
+Transport protocols like TCP do not support this kind of operation, and usage will result in undefined behavior.
+
+All [[ReliablePacket]]s should contain the entire raw message, including the reliable packet meta-data.
+This will send @RP as a raw packet using its [[ReliablePacket.Destination]] property.
+
+# Method Send:Void(P:Packet, Type:MessageType, Reliable:Bool=False, Async:Bool=True, ExtendedPacket:Bool=False)
+
+This builds and sends a packet of @Type using @P as the data-segment, and sends to every connected [[Client]].
+For hosts, this sends to clients, for clients, this sends to the host.
+
+Please enable @Reliable if you intend for the message to always be received, even when using reliable transport.
+
+* The @P argument represents the data you would like to send. (Packet formatting handled behind the scenes)
+* The @Type argument specifies a user-level type defined by your application. (Must be [[MSG_TYPE_CUSTOM]] or above; non-zero currently)
+* The @Reliable argument is used to ensure this packet makes it to its destinations. Packet ordering is not guaranteed; transport dependent.
+* The @Async argument is used to toggle asynchronous output; queued, could be slower.
+
+* The @ExtendedPacket argument is used internally to send packet chunks for [[MegaPacket]] objects. Unless you're extending the framework, @DO @NOT change this argument.
+
+# Method Send:Void(P:Packet, C:Client, Type:MessageType, Reliable:Bool=False, Async:Bool=True, ExtendedPacket:Bool=False)
+
+This builds and sends a packet of @Type using @P as the data-segment, and sends to @C.
+For hosts, this sends to @C, for clients, this will only send to @C if it is [[Remote]].
+
+* The @P argument represents the data you would like to send. (Packet formatting handled behind the scenes)
+* The @Type argument specifies a user-level type defined by your application. (Must be [[MSG_TYPE_CUSTOM]] or above)
+* The @Reliable argument is used to ensure this packet makes it to its destinations. Packet ordering is not guaranteed; transport dependent.
+* The @Async argument is used to toggle asynchronous output; queued, could be slower.
+
+* The @ExtendedPacket argument is used internally to send packet chunks for [[MegaPacket]] objects. Unless you're extending the framework, @DO @NOT change this argument.
+
+# Method Send:Void(MP:MegaPacket, C:Client, Type:MessageType)
+
+This overload provides an easy to use interface for sending [[MegaPacket]] objects. [[MegaPacket]] messages are always reliable.
+When this message is received on the other end, it will be done as a [[MegaPacket]], and passed to your application as a [[Stream]].
+
+* The @MP argument represents the auto-formatted user-level data you'd like to send.
+* The @C argument acts as the destination we'll be sending to. (Follows the usual [[Client]] output rules)
+* The @Type argument specifies a user-level type defined by your application. (Must be [[MSG_TYPE_CUSTOM]] or above)
+
+# Method AutoSendRaw:Void(RawPacket:Packet, Async:Bool=True)
+
+@Use @this @method @at @your @own @risk.
+
+<p>
+This is used to send a raw packet, unlike @Send, which builds a formatted raw packet around the described packet.
+This doesn't handle formats, it simply sends @RawPacket to the default destination. (Clients to host, host to clients)
+The @Async argument is used to toggle asynchronous output; queued, could be slower.
+</p>
+
+See also: [[Send]]
+
+# Method AutoSendRaw:Void(RawPacket:Packet, C:Client, Async:Bool=True)
+
+@Use @this @method @at @your @own @risk.
+
+<p>
+This is used to send a raw packet, unlike @Send, which builds a formatted raw packet around the described packet.
+This doesn't handle formats, it simply sends @RawPacket to the described destination (@C). (Clients must send to hosts, hosts can send to any client)
+The @Async argument is used to toggle asynchronous output; queued, could be slower.
+</p>
+
+See also: [[Send]]
+
+# Method Disconnect:Void(C:Client)
+
+This sends a reliable disconnection message to @C, then marks @C as [[Client.Closing]].
+
+See also: [[DisconnectAll]]
+
+# Method DisconnectAll:Void()
+
+This disconnects every connected client from a host.
+
+See also: [[Disconnect]]
+
+# Method ForceDisconnect:Void(C:Client)
+
+This force-releases @C, sending an unreliable notification; use at your own risk.
+
+# Method SendForceDisconnect:Void(C:Client, Reliable:Bool=False, Async:Bool=False)
+
+@ATTENTION: Use @ForceDisconnect instead. The only exception is if you intend to manage @C yourself. (Use at your own risk)
+
+<p>
+The [[Client]] specified (@C) will be in its original state after calling this.
+However, this will send an unreliable disconnection-notice to @C.
+Because of this, it is a bad idea to call this and not claim @C as closing (Manually).
+This is completely unmanaged, so it's up to the caller to handle @C properly.
+</p>
+
+<p>
+Technically, a "force disconnect" is unmanaged, so the best course of action would be to ignore the client everywhere.
+</p>
+
+<p>
+There's two ways of doing this, the safe way, and the unsafe way:
+
+* The safe way is considered best practice. After calling this command, manually call [[ReleaseClient]]. This will result in a proper disconnection from the host's perspective.
+* The unsafe way would be to set the @C argument's [[Client.Closing]] flag. Doing this is a bad idea for forced disconnections, as internal messages will still be accepted.
+
+And, if [[ClientMessagesAfterDisconnect]] is on, normal messages will work, too.
+</p>
+
+See also: [[ForceDisconnect]], [[DisconnectAll]], [[Disconnect]]
+
+# Method SendForceDisconnect:Void(Reliable:Bool=False, Async:Bool=False)
+
+<p>
+This acts like the [[SendForceDisconnect|other overload]], only it sends to the default destination.
+This is used internally, and should be avoided by normal users. (Use at your own risk)
+</p>
+
+See also: [[ForceDisconnect]], [[DisconnectAll]], [[Disconnect]]
+
+# Method SendDisconnectionNotice:Void(Reliable:Bool=False, Async:Bool=False)
+
+This overload uses automated destination resolution.
+
+<p>
+To put it simply, this will send to the host for
+clients, and send to every client for a server.
+</p>
+
+<p>
+By default, like [[SendForceDisconnect]], this is not a reliable message,
+and may need further management after calling.
+</p>
+
+<p>
+If @Reliable is enabled, this will send a [[INTERNAL_MSG_REQUEST_DISCONNECTION]] message.
+If it's disabled, [[INTERNAL_MSG_DISCONNECT]] will be sent.
+</p>
+
+See also: [[ForceDisconnect]], [[DisconnectAll]], [[Disconnect]], [[SendDisconnect]], [[SendForceDisconnect]], [[SendDisconnectToAll]]
+
+# Method SendDisconnect:Void(C:Client)
+
+@ATTENTION: This routine does not perfectly disconnect [[Clients]] objects on its own.
+
+<p>
+This command should only be called by users for debugging purposes,
+or in the case of lax disconnection environments.
+</p>
+
+<p>
+This is used internally by [[DisconnectClient]], which is
+the proper way to disconnect a [[Client]] from this network.
+</p>
+
+# Method SendDisconnectToAll:Void()
+
+This will send reliable disconnection messages to all connected clients.
+The rules applied to [[SendDisconnect]] apply here, the difference being that this should only be called by hosts.
+
+See also: [[ForceDisconnect]], [[DisconnectAll]], [[Disconnect]], [[SendDisconnect]], [[SendForceDisconnect]], [[SendDisconnectionNotice]]
+
+# Method BuildOutputMessage:Packet(P:Packet, Type:MessageType, ExtendedPacket:Bool=False, DefaultSize:Int=0)
+
+<p>Used internally; use at your own risk.</p>
+
+<p>
+This command produces a packet in the appropriate format.
+This will generate a "system packet", which is handled internally.
+For details on the @DefaultSize' argument, please see [[WriteMessage]].
+</p>
+
+<p>
+Internal messages do not serialize their data-segments' lengths.
+</p>
+
+# Method BuildReliableMessage:Void(Data:Packet, Type:MessageType, RP:ReliablePacket, ExtendedPacket:Bool=False)
+
+<p>Used internally; use at your own risk.</p>
+
+<p>
+This will take the contents of @Data, transfer it to @RP, as well as write any needed formatting.
+This allows you to use @RP as a normal system-managed packet.
+</p>
+
+<p>[[ReliablePacket]] objects should not be used by TCP networks.</p>
+
+See also: [[BuildOutputMessage]]
+
+# Method BuildReliableMessage:ReliablePacket(Data:Packet, Type:MessageType, C:Client, ExtendedPacket:Bool=False)
+
+<p>This will generate a [[ReliablePacket]] automatically, then call the primary implementation; the same restrictions apply.</p>
+
+See also: [[BuildOutputMessage]]
+
+# Method IsCallback:Bool(Callback:NetworkListener)
+
+This specifies if @Callback is in any way a callback internally.
+
+# Method AllocatePacket:Packet()
+
+<p>This allocates and initializes a [[Packet]] object for general use, usually from a pool.</p>
+<p>This object can be used to read (Requires extension) or write messages. Once finished, you can call [[Send]], or [[AutoSendRaw]], depending on your use-case.<p>
+
+Because this is likely from a pool, please call [[ReleasePacket]] when finished with the [[Packet]] object you get from this.
+
+# Method ReleasePacket:Bool(P:Packet)
+
+<p>This releases a [[Packet]] object allocated from [[AllocatePacket]].</p>
+<p>Passing an object that was not from [[AllocatePacket]] is considered "unsafe", and will result in undefined behavior.</p>
+<p>The return-value of this method indicates if the object was accepted. For most cases, just call this without worrying about the return-value.</p>
+
+See also: [[AllocatePacket]]
+
+# Method GetClient:Client(Address:NetworkAddress)
+
+This is used to retrieve a [[Client]] object using its address.
+
+<p>Do not keep a long-term handle to this object unless you intend to accept [[ClientNetworkListener.OnClientDisconnected]] notifications.</p>
+
+See also: [[ObjectEnumerator]]
+
+# Method GetClient:Client(S:Socket)
+
+<p>
+Generally speaking, this should only be called when using TCP; for a general
+purpose routine, please use the [[GetClient|overload]] accepting a [[NetworkAddress]].
+</p>
+
+<p>This retrieves a [[Client]] object using its socket. (Not recommended)</p>
+
+See also: [[ObjectEnumerator]]
+
+# Method Connected:Bool(S:Socket)
+
+<p>This returns 'True' if a [[Client]] with @S as its [[Client.Connection|socket]] was found.</p>
+<p>This is only useful for TCP; UDP always returns 'False'.</p>
+
+See also: [[GetClient]]
+
+# Method Connected:Bool(Address:NetworkAddress)
+
+<p>This returns 'True' if a [[Client]] with @Address as its [[Client.Address]] was found.</p>
+
+See also: [[GetClient]]

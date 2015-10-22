@@ -22,23 +22,23 @@ This is an internal constructor used to initialize the pool; @PoolSize specifies
 This constructor is protected.
 
 
-# Method GeneratePacket:PacketType() Abstract
+# Method GeneratePacket:Packet() Abstract
 
 This is an abstract method used to generate a packet for internal management.
 
 This method is protected.
 
-# Method Allocate:PacketType()
+# Method Allocate:Packet()
 
 This obtains a packet, then returns it. (Reference-count management and [[GeneratePacket]])
 
-# Method Release:Bool(P:PacketType)
+# Method Release:Bool(P:Packet)
 
 This is used to release a handle to a 'PacketType' object.
 This will call [[Packet.Release]], but expects the object to remain usable.
 For details, see [[Packet.New|Packet.New]].
 
-# Method Contains:Bool(P:PacketType)
+# Method Contains:Bool(P:Packet)
 
 This deduces if @P is contained by this pool.
 

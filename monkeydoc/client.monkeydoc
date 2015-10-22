@@ -74,7 +74,7 @@ This routine is protected, but documented for extension purposes.
 
 # Method Closing:Bool() Property
 
-This specifies if this client is in the process of disconnecting/closing.
+This specifies if this client is in the process of disconnecting/closing. (Ignored for formal messages; only internal messages will be accepted)
 
 # Method Closing:Void(Input:Bool) Property
 
