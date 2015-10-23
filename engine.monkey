@@ -1044,7 +1044,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return Bind(Self.Connection, Port, Async, Hostname)
 	End
 	
-	Method RawConnect:Bool(Host:String, Port:Int, Async:Bool=False)
+	' This performs a raw connection operation on a socket.
+	Method RawConnect:Bool(Connection:Socket, Host:String, Port:Int, Async:Bool=False)
 		If (Async) Then
 			Connection.ConnectAsync(Host, Port, Self)
 		Else
@@ -1053,6 +1054,11 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		
 		' Return the default response.
 		Return True
+	End
+	
+	' This will use the internal socket to perform a 'RawConnect' operation.
+	Method RawConnect:Bool(Host:String, Port:Int, Async:Bool=False)
+		Return RawConnect(Self.Connection, Host, Port, Async)
 	End
 	
 	' Call-backs:
@@ -1250,16 +1256,16 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return
 	End
 	
-	Method LaunchAsyncReceiveFrom:Void(S:Socket, P:Packet)
-		LaunchAsyncReceiveFrom(S, P, New NetworkAddress())
-		
-		Return
-	End
-	
 	Method LaunchAsyncReceiveFrom:Void(S:Socket, P:Packet, Address:NetworkAddress)
 		P.Reset()
 		
 		S.ReceiveFromAsync(P.Data, P.Offset, P.DataLength, Address, Self)
+		
+		Return
+	End
+	
+	Method LaunchAsyncReceiveFrom:Void(S:Socket, P:Packet)
+		LaunchAsyncReceiveFrom(S, P, New NetworkAddress())
 		
 		Return
 	End
