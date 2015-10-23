@@ -115,7 +115,7 @@ A [[NetworkEngine]] acts as your connection or "node" in the network. At present
 </p>
 
 <p>
-Though undocumented, most [[Socket|BRL Socket]] asynchronous callbacks are implemented, and a can be extended when extending this framework.
+Though undocumented, most [[Socket|BRL Socket]] asynchronous callbacks are implemented, and can be extended when extending this framework.
 That being said, this framework reserves the right to resolve @'Socket' as any type it sees fit. The documentation currently only reflects the [[Socket|BRL implementation]].
 </p>
 
@@ -891,4 +891,53 @@ See also: [[AllocateReliablePacket]], [[ReleaseReliablePacket]]
 <p>This find a "system packet" associated with @Data, and calls [[DeallocateSystemPacket]] on it.</p>
 <p>For details on "system packets", view the [[AddSystemPacket]] command's documentation.</p>
 <p>If unsure, don't mess with this.</p>
+<p><b>This method is protected.</b></p>
+
+# Method ReadMessage:MessageType(P:Packet, Address:NetworkAddress, Source:Socket)
+
+<p>This is called whenever a raw packet is received from a remote node.</p>
+<p>This routine handles most of the input portion of the network's protocol.</p>
+<p>
+Basically, this handles everything but handling the standard data-segment of user-level packets.
+So, any "internal messages" we receive will be read and managed through this method.
+</p>
+
+<p>
+* The @P argument represents the raw [[Stream|input stream]] of the other end's data.
+* The @Address argument describes the address of the sender.
+* The @Source argument represents the socket used to receive this message.
+</p>
+
+<p>If you are using TCP as your underlying protocol, then @Source will always be available.</p>
+<p>This will catch any [[StreamError]] thrown by this routine, and any sub routines, unless running in a debug configuration.</p>
+<p><b>This method is protected.</b></p>
+
+See also: [[ReadMessageBody]], [[ReadExtendedPacketChunk]]
+
+# Method ReadExtendedPacketChunk:Bool(P:Stream, C:Client, Type:MessageType, DataSize:Int, DataSegmentOrigin:Int)
+
+<p>This is used internally to receive chunks from "extended packets" ([[MegaPacket|MegaPackets]]).</p>
+<p>This is usually called by [[ReadMessage]], and will call [[ReadMessageBody]] when the message is finished.</p>
+<p><b>This method is protected.</b></p>
+
+See also: [[ReadMessage]], [[ReadMessageBody]]
+
+# Method ReadMessageBody:Bool(P:Stream, C:Client, Type:MessageType, DataSize:Int, Address:NetworkAddress)
+
+<p>This routine handles safety and callbacks for packet data-segments.</p>
+<p>
+* The @P argument should be a safe-to-use [[Stream]] containing the data-segment of a raw packet, as described before being sent over with [[Send]] (Or similar).
+* The @C argument should be a handle to the client responsible for this message (Sending end).
+* The @Type argument should specify a correct user-level type, as described by the other end's usage of [[Send]] (Or similar).
+* The @DataSize argument should describe the length of the data-segment the [[MetaNetworkListener|user will be reading]].
+* The @Address argument should provide the address of @C (Or similar).
+</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[ReadMessage]], [[ReadExtendedPacketChunk]]
+
+# Method ReadMessageBody:Void(P:Stream, C:Client, Type:MessageType, DataSize:Int)
+
+<p>This is provided for convenience; calls the [[ReadMessageBody|main implementation]] using @C's [[Client.Address]] property.</p>
 <p><b>This method is protected.</b></p>
