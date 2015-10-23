@@ -12,7 +12,7 @@
 # Import brl.socket
 # Import brl.asyncevent
 
-This acts as the main implementation-module, import [[networking]] (Ideally) or this. For details, view the [[NetworkEngine]] class's documentation. This API reserves the right to ignore "Async" settings if necessary. In addition, argument defaults described by this documentation may not reflect the actual code, but will be present regardless of their real values. In other words, optional argument values may be different from document.
+This acts as the main implementation-module, import [[networking]] (Ideally) or this. For details, view the [[NetworkEngine]] class's documentation. This API reserves the right to ignore "Async" settings if necessary. In addition, argument defaults described by this documentation may not reflect the actual code, but will be present regardless of their real values. In other words, optional argument values may be different from this document.
 
 
 # Class ProtocolType Extends Int
@@ -93,7 +93,7 @@ This is called when a [[MegaPacket]] is done being sent.
 
 # Method OnMegaPacketDownSize:Bool(Network:NetworkEngine, MP:MegaPacket)
 
-This asks if @MP should be cut down. (If unsure, return 'False')
+This asks if @MP should be cut down. (If unsure, return [[False]])
 
 # Interface NetworkListener Implements CoreNetworkListener, MetaNetworkListener, ClientNetworkListener, MegaPacketNetworkListener
 
@@ -139,7 +139,7 @@ This is used to specify TCP as the underlying transport protocol.
 
 # Function AddressesEqual:Bool(X:NetworkAddress, Y:NetworkAddress)
 
-This compares @X and @Y, and returns 'True' if they are equal. (Deep compare)
+This compares @X and @Y, and returns [[True]] if they are equal. (Deep compare)
 
 # Function ProtocolToString:String(Protocol:ProtocolType)
 
@@ -553,13 +553,93 @@ See also: [[ObjectEnumerator]]
 
 # Method Connected:Bool(S:Socket)
 
-<p>This returns 'True' if a [[Client]] with @S as its [[Client.Connection|socket]] was found.</p>
-<p>This is only useful for TCP; UDP always returns 'False'.</p>
+<p>This returns [[True]] if a [[Client]] with @S as its [[Client.Connection|socket]] was found.</p>
+<p>This is only useful for TCP; UDP always returns [[False]].</p>
 
 See also: [[GetClient]]
 
 # Method Connected:Bool(Address:NetworkAddress)
 
-<p>This returns 'True' if a [[Client]] with @Address as its [[Client.Address]] was found.</p>
+<p>This returns [[True]] if a [[Client]] with @Address as its [[Client.Address]] was found.</p>
 
 See also: [[GetClient]]
+
+# Method ReleaseClient:Void(C:Client)
+
+<p>This is used to manually release a [[Client]] from this network.</p>
+<p>This will not disconnect the client, only remove it and call [[ClientNetworkListener.OnClientDisconnected]].</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[Disconnect]], [[ForceDisconnect]], [[DisconnectAll]]
+
+# Method ReleaseClient:Void(S:Socket)
+
+<p>This should only be called when using TCP.</p>
+<p>In addition, the @S must be held by a [[Client]].</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[Disconnect]], [[ForceDisconnect]], [[DisconnectAll]]
+
+# Method GetNextReliablePacketID:PacketID()
+
+<p>
+This may be used to retrieve the next reliable-packet identifier.
+This will increment an internal ID-counter; use with caution.
+</p>
+
+<p><b>This method is protected.</b></p>
+
+# Method ConfirmReliablePacket:Bool(C:Client, ID:PacketID)
+
+<p>
+This is used internally to automate the process of confirming a reliable packet.
+This routine is only valid when using unreliable transport protocols, like UDP.
+</p>
+
+<p><b>This method is protected.</b></p>
+
+# Method AddPendingMegaPacket:Void(MP:MegaPacket)
+
+<p>
+This adds @MP as a local [[MegaPacket]] internally.
+Basically, @MP will be held in a container, so it can be referenced by the receiving end using its [[MegaPacket.ID]].
+</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[RemovePendingMegaPacket]], [[GetPendingMegaPacket]]
+
+# Method RemovePendingMegaPacket:Void(MP:MegaPacket)
+
+<p>This is used to remove one of our pending [[MegaPacket]] objects.</p>
+<p>For more information, view the [[AddPendingMegaPacket]] command.</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[AddPendingMegaPacket]], [[GetPendingMegaPacket]]
+
+# Method RemovePendingMegaPacket:Void(ID:PacketID)
+
+<p>This is used to remove one of our pending [[MegaPacket]] objects using its @[[MegaPacket.ID]].</p>
+<p>For more information, view the [[RemovePendingMegaPacket|main overload]], and the [[AddPendingMegaPacket]] command.</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[AddPendingMegaPacket]], [[GetPendingMegaPacket]]
+
+# Method GetPendingMegaPacket:MegaPacket(ID:PacketID)
+
+<p>This retrieves the [[MegaPacket]] object with @[[MegaPacket.ID]], previously added with [[AddPendingMegaPacket]].</p>
+<p>If a [[MegaPacket]] couldn't be found, this will return [[Null]].</p>
+<p><b>This method is protected.</b></p>
+
+See also: [[AddPendingMegaPacket]], [[RemovePendingMegaPacket]]
+
+# Method HasPendingMegaPacket:Bool(ID:PacketID)
+
+<p>This returns [[True]] if a [[MegaPacket]] with the @[[MegaPacket.ID]] specified was found.</p>
+<p><b>This method is protected.</b></p>
+
+See also: [[AddPendingMegaPacket]], [[RemovePendingMegaPacket]], [[GetPendingMegaPacket]]

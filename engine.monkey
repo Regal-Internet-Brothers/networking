@@ -890,7 +890,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	' Methods (Protected):
 	Protected
 	
-	' This may be used to manually release a client from this network.
+	' This may be used to manually release a 'Client' from this network.
 	Method ReleaseClient:Void(C:Client)
 		If (C = Null Or (IsClient And C = Remote)) Then
 			Return
@@ -933,8 +933,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return ID
 	End
 	
-	' This is uses internally to automate the process of confirming a reliable packet.
-	' This routine is only valid when using UDP as the underlying protocol.
+	' This is used internally to automate the process of confirming a reliable packet.
+	' This routine is only valid when using unreliable transport protocols, like UDP.
 	Method ConfirmReliablePacket:Bool(C:Client, ID:PacketID)
 		SendPacketConfirmation(C, ID)
 		

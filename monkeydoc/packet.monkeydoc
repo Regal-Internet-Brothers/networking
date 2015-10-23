@@ -76,7 +76,7 @@ This specifies if the internal reference-counter is zero.
 
 # Method IsReliable:Bool() Property
 
-This specifies if this is a reliable packet. (Used internally; always 'False' for normal [[Packet]] objects)
+This specifies if this is a reliable packet. (Used internally; always [[False]] for normal [[Packet]] objects)
 
 # Method AutoClose:Bool() Property
 
@@ -129,7 +129,7 @@ This property has protected assignment-access.
 
 # Method IsReliable:Bool() Property
 
-This will always return 'True'.
+This will always return [[True]].
 
 See also:
 

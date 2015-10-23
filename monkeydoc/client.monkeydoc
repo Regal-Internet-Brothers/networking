@@ -50,7 +50,7 @@ This is used to update a [[Client]] object. The main purpose of this is to handl
 # Method ProjectedPing:NetworkPing(Network:NetworkEngine)
 
 This returns the "projected ping" of this client, based on the criteria specified in @Network.
-"Projected pings" are approximate pings describing how long a client has been pinging. This number is not accurate unless the [[Pinging]] property reports 'True'.
+"Projected pings" are approximate pings describing how long a client has been pinging. This number is not accurate unless the [[Pinging]] property reports [[True]].
 
 # Method ConfirmPacket:Bool(ID:PacketID)
 
@@ -59,7 +59,7 @@ The return-value indicates if the operation failed.
 
 # Method ContainsPacket:Bool(ID:PacketID)
 
-This returns 'True' if @ID has already been confirmed.
+This returns [[True]] if @ID has already been confirmed.
 
 See also:
 
@@ -98,7 +98,7 @@ This specifies the last known ping of this client. This does not change while ca
 
 # Method Pinging:Bool() Property
 
-This specifies if this client is currently calculating a ping. The [[Ping]] property is still valid while this is 'True'.
+This specifies if this client is currently calculating a ping. The [[Ping]] property is still valid while this is [[True]].
 
 This property has protected assignment-access.
 
@@ -114,7 +114,7 @@ See also:
 
 # Method Address:NetworkAddress() Property
 
-The address associated with this client; may be 'Null' depending on the underlying transport protocol. (Available for UDP)
+The address associated with this client; may be [[Null]] depending on the underlying transport protocol. (Available for UDP)
 
 See also:
 
@@ -122,4 +122,4 @@ See also:
 
 # Method Connection:Socket() Property
 
-The [[Socket]] associated with this client; may be 'Null' depending on the underlying transport protocol. (Available for TCP)
+The [[Socket]] associated with this client; may be [[Null]] depending on the underlying transport protocol. (Available for TCP)
