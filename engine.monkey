@@ -1390,14 +1390,17 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return Null
 	End
 	
-	Method RemoveWaitingPacket:Void(Data:DataBuffer)
+	Method RemoveWaitingPacket:Bool(Data:DataBuffer)
 		Local P:= RetrieveWaitingPacketHandle(Data)
 		
 		If (P <> Null) Then
 			DeallocateSystemPacket(P)
+			
+			Return True
 		Endif
 		
-		Return
+		' Return the default response.
+		Return False
 	End
 	
 	' I/O related:

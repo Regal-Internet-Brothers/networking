@@ -114,8 +114,10 @@ A [[NetworkEngine]] acts as your connection or "node" in the network. At present
 [[NetworkEngine]] objects handle the vast majority of what goes on behind the scenes, and they are responsible for the objects they emit. That being said, if an object is allocated via a pool, or similar system, it's up to the user to return the object(s) provided.
 </p>
 
-<p>Though undocumented, most [[Socket|BRL Socket]] asynchronous callbacks are implemented, and a can be extended when extending this framework.</p>
-<p>That being said, this framework reserves the right to resolve @'Socket' as any type it sees fit. The documentation currently only reflects the [[Socket|BRL implementation]].</p>
+<p>
+Though undocumented, most [[Socket|BRL Socket]] asynchronous callbacks are implemented, and a can be extended when extending this framework.
+That being said, this framework reserves the right to resolve @'Socket' as any type it sees fit. The documentation currently only reflects the [[Socket|BRL implementation]].
+</p>
 
 
 # Const PORT_AUTOMATIC:Int
@@ -756,3 +758,137 @@ For details, please view that overload's documentation.
 <p><b>This method is protected.</b></p>
 
 See also: [[AutoLaunchReceive]], [[LaunchAsyncReceive]]
+
+# Method AddSystemPacket:Void(P:Packet)
+
+<p>This is used to manually add a "system packet".</p>
+<p>
+"System packets" are automatically managed [[Packet]] objects, that are held for later
+attainment when [[RetrieveWaitingPacketHandle|their underlying buffer is sent back]] through an internal callback.
+</p>
+<p>
+For example, the packet-less overloads for the "LaunchAsync"
+and "AutoLaunch" internal methods [[AllocateSystemPacket|allocate]] system packets.
+</p>
+
+<p>If unsure, don't mess with this.</p>
+<p><b>This method is protected.</b></p>
+
+See also: [[AllocateSystemPacket]], [[DeallocateSystemPacket]], [[RemoveSystemPacket]]
+
+# Method RemoveSystemPacket:Void(P:Packet)
+
+<p>
+This is called internally to remove a [[Packet]] handle previously given to [[AddSystemPacket]].
+
+For details on "system packets", please view [[AddSystemPacket|that method's documentation]].
+</p>
+<p>
+In the case of automatically [[AllocateSystemPacket|allocated "system packets"]], this should be used instead
+of [[DeallocateSystemPacket]], if you intend to keep the object yourself. (Like a normal [[Packet]] from [[AllocatePacket]])
+</p>
+<p>
+Or, in the case of custom [[Packet]] objects, this provides removal without pooling.
+</p>
+
+<p>If unsure, don't mess with this.</p>
+<p><b>This method is protected.</b></p>
+
+See also: [[AddSystemPacket]], [[AllocateSystemPacket]], [[DeallocateSystemPacket]]
+
+# Method AllocateSystemPacket:Packet()
+
+<p>
+This is used to allocate a "system packet".
+
+Basically, this will call [[AllocatePacket]], then add it as a "system packet" using [[AddSystemPacket]].
+</p>
+
+<p>For details on "system packets", please view the [[AddSystemPacket]] method's documentation.</p>
+<p>If unsure, don't mess with this.</p>
+<p><b>This method is protected.</b></p>
+
+# Method DeallocateSystemPacket:Bool(P:Packet)
+
+<p>
+This will remove all traces of a "system packet" allocated as one.
+In addition, this will handle reliable packet symantics if necessary.
+</p>
+
+<p>
+The return-value of this command specifies if @P is no longer in use, and has been removed.
+([[True]] if everything worked, and it's now in the main "packet pool")
+</p>
+
+<p>For details on "system packets", please view the [[AddSystemPacket]] and [[RemoveSystemPacket]] methods' documentation.</p>
+<p>If unsure, don't mess with this.</p>
+<p><b>This method is protected.</b></p>
+
+# Method AllocateReliablePacket:ReliablePacket(Destination:Client, ID:PacketID)
+
+<p>This allocates an internal [[ReliablePacket]] object as a "system packet".</p>
+<p>This is used internally, and should only be messed with if you completely understand it.</p>
+<p>[[ReliablePacket]] objects are not relevant to reliable transport protocols, like TCP.</p>
+
+<p>If unsure, don't mess with this.</p>
+<p><b>This method is protected.</b></p>
+
+See also: [[DeallocateReliablePacket]]
+
+# Method AllocateReliablePacket:ReliablePacket(Destination:Client)
+
+<p>Like the [[AllocateReliablePacket|main overload]], this will allocate a [[ReliablePacket]] as a "system packet".</p>
+<p>Unlike that overload, this will call [[GetNextReliablePacketID]] for the packet's reliable identifier ([[PacketID]]).
+
+<p>If unsure, don't mess with this.</p>
+<p><b>This method is protected.</b></p>
+
+See also: [[DeallocateReliablePacket]]
+
+# Method DeallocateReliablePacket:Bool(RP:ReliablePacket)
+
+<p>This performs a formal deallocation of @RP, including "system packet" management.</p>
+<p>
+The return-value indicates if @RP was released to this network. If [[False]], something else is using this object.
+In this situation, ignore @RP, as it isn't relevant to your code anymore.
+</p>
+<p>@RP should only be an object previously allocated with [[AllocateReliablePacket]].</p>
+<p>For details, view the documentation for [[AllocateReliablePacket|that method]], and [[AddSystemPacket]].</p>
+
+<p>If unsure, don't mess with this.</p>
+<p><b>This method is protected.</b></p>
+
+See also: [[AllocateReliablePacket]], [[ReleaseReliablePacket]]
+
+# Method ReleaseReliablePacket:Bool(ID:PacketID)
+
+<p>This [[DeallocateReliablePacket|deallocates]] the [[ReliablePacket]] with the identifier specified (@ID).</p>
+<p>For details, view the [[DeallocateReliablePacket]] method's documentation.</p>
+
+<p>If unsure, don't mess with this.</p>
+<p><b>This method is protected.</b></p>
+
+# Method GetReliableHandle:ReliablePacket(RawPacket:Packet)
+
+<p>This looks through our [[ReliablePacket]] objects still in play, and checks if one of them is actually @RawPacket.</p>
+
+<p>If unsure, don't mess with this.</p>
+<p><b>This method is protected.</b></p>
+
+# Method IsReliablePacket:Bool(RawPacket:Packet)
+
+<p>This wraps a call to @RawPacket's [[Packet.IsReliable]] implementation.</p>
+<p><b>This method is protected.</b></p>
+
+# Method RetrieveWaitingPacketHandle:Packet(Data:DataBuffer)
+
+<p>This looks through registered "system packets", checking for the [[Packet]] object with the same underlying buffer as @Data.</p>
+<p>For details on "system packets", view the [[AddSystemPacket]] command's documentation.</p>
+<p><b>This method is protected.</b></p>
+
+# Method RemoveWaitingPacket:Void(Data:DataBuffer)
+
+<p>This find a "system packet" associated with @Data, and calls [[DeallocateSystemPacket]] on it.</p>
+<p>For details on "system packets", view the [[AddSystemPacket]] command's documentation.</p>
+<p>If unsure, don't mess with this.</p>
+<p><b>This method is protected.</b></p>
