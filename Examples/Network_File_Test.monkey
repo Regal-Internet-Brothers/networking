@@ -287,6 +287,10 @@ Class Application Extends App Implements NetworkListener Final
 	End
 	
 	Method OnMegaPacketRequestAborted:Void(Network:NetworkEngine, MP:MegaPacket)
+		#If CONFIG = "debug"
+			DebugStop()
+		#End
+		
 		Print("Mega-packet cut off too early.")
 		
 		Return

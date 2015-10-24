@@ -106,10 +106,10 @@ This is assigned internally by a [[NetworkEngine]] when sending.
 
 This property has protected assignment-access.
 
-# Method PacketsReceived:Int() Property
+# Method PacketsStaged:Int() Property
 
-This describes the number of packet chunks/pieces received.
-This is assigned internally by a [[NetworkEngine]] when receiving.
+This describes the number of packet chunks/pieces we've asked for.
+This is assigned internally by a [[NetworkEngine]] when requesting chunks.
 
 This property has protected assignment-access.
 

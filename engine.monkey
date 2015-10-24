@@ -118,6 +118,11 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Const SOCKET_TYPE_UDP:= 0
 	Const SOCKET_TYPE_TCP:= 1
 	
+	' General:
+	
+	' Use this to disable timeouts for remote 'MegaPacket' handles.
+	Const MEGA_PACKET_TIMEOUT_NONE:= -1
+	
 	' Defaults:
 	Const Default_PacketSize:= 4*1024 ' 8*1024 ' 4096 ' 8192
 	Const Default_PacketPoolSize:= 4
@@ -125,6 +130,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Const Default_PacketReleaseTime:Duration = 1500 ' Milliseconds.
 	Const Default_PacketResendTime:Duration = 200 ' 40 ' Milliseconds.
 	Const Default_PingFrequency:Duration = 1000 ' Milliseconds.
+	Const Default_MegaPacketTimeout:Duration = 5000
 	
 	Const Default_MaxChunksPerMegaPacket:= 2048 ' 8MB (At 4096 bytes per packet)
 	Const Default_MaxPing:NetworkPing = 4000
@@ -157,7 +163,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	' Constructor(s) (Public):
-	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PingFrequency:Duration=Default_PingFrequency, MaxPing:NetworkPing=Default_MaxPing, MaxChunksPerMegaPacket:Int=Default_MaxChunksPerMegaPacket, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime) ' LaunchReceivePerClient:Bool=Default_LaunchReceivePerClient
+	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PingFrequency:Duration=Default_PingFrequency, MaxPing:NetworkPing=Default_MaxPing, MaxChunksPerMegaPacket:Int=Default_MaxChunksPerMegaPacket, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime, MegaPacketTimeout:Duration=Default_MegaPacketTimeout) ' LaunchReceivePerClient:Bool=Default_LaunchReceivePerClient
 		Self.PacketGenerator = New BasicPacketPool(PacketSize, PacketPoolSize, FixByteOrder)
 		Self.SystemPackets = New Stack<Packet>()
 		
@@ -168,6 +174,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		
 		Self.PacketReleaseTime = PacketReleaseTime
 		Self.PacketResendTime = PacketResendTime
+		Self.MegaPacketTimeout = MegaPacketTimeout
+		
 		'Self.LaunchReceivePerClient = LaunchReceivePerClient
 	End
 	
@@ -1637,7 +1645,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 									AbortMegaPacket(C, MegaID)
 								Endif
 							Else
-								If (ResponseCode = MEGA_PACKET_RESPONSE_ABORT Or ResponseCode = MEGA_PACKET_RESPONSE_CLOSE) Then
+								If (ResponseCode = MEGA_PACKET_RESPONSE_ABORT Or ResponseCode = MEGA_PACKET_RESPONSE_CLOSE) Then ' MEGA_PACKET_RESPONSE_TIMEOUT
 									Mega = C.GetWaitingMegaPacket(MegaID)
 									
 									If (Mega <> Null) Then
@@ -1858,8 +1866,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			
 			DataSegment.SetLength(DataSize); DataSegment.Seek() ' 0
 			
-			' Check if the message is complete:
-			If (Mega.PacketsReceived >= PacketCount) Then ' =
+			' Check if this is the last part of the message:
+			If (Mega.PacketsStaged >= PacketCount) Then ' =
 				If (HasMegaPacketCallback) Then
 					MegaPacketCallback.OnMegaPacketFinished(Self, Mega)
 				Endif
@@ -1870,6 +1878,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 				' Read from our final message.
 				ReadMessageBody(Mega, C, Type, Mega.Length)
 				
+				' Tell the other end we're done with their 'MegaPacket'.
 				SendMegaPacketClose(Mega, True)
 				
 				C.RemoveWaitingMegaPacket(Mega)
@@ -2263,9 +2272,9 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Method SendMegaPacketChunkRequest:Bool(MP:MegaPacket, Async:Bool=True)
 		Local IsFinal:= MP.OnFinalLink
 		
-		SendMegaPacketChunkRequest(MP, MP.PacketsReceived, Async)
+		SendMegaPacketChunkRequest(MP, MP.PacketsStaged, Async)
 		
-		MP.PacketsReceived += 1
+		MP.PacketsStaged += 1
 		
 		If (IsFinal) Then
 			Return False ' Not IsFinal
@@ -2510,6 +2519,9 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	
 	' The amount of time between reliable-packet re-sends.
 	Field PacketResendTime:Duration
+	
+	' The amount of time a 'MegaPacket' is allowed to idle.
+	Field MegaPacketTimeout:Duration
 	
 	' The minimum amount of time between ping-detections.
 	Field PingFrequency:Duration

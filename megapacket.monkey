@@ -24,6 +24,8 @@ Import engine
 ' External:
 Import ioutil.chainstream
 
+Import eternity
+
 Public
 
 ' Classes:
@@ -47,6 +49,9 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		
 		Self.ID = ID
 		Self.Destination = Destination
+		Self.IsRemoteHandle = True
+		
+		AutoUpdateTimeoutStatus()
 	End
 	
 	' This constructs a 'MegaPacket' for deployment purposes.
@@ -58,7 +63,8 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		' Set the internal network to what was specified.
 		Self.Network = Network
 		
-		ID = Network.GetNextMegaPacketID()
+		Self.IsRemoteHandle = False
+		Self.ID = Network.GetNextMegaPacketID()
 		
 		If (Not ExtendAndMark(False)) Then
 			Throw New MegaPacket_UnableToExtend(Self)
@@ -88,11 +94,12 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		
 		ID = 0 ' NetworkEngine.INITIAL_PACKET_ID
 		Type = 0
-		PacketsReceived = 0
+		PacketsStaged = 0
 		
 		Destination = Null
 		
-		' Set the confirmation flags to 'False':
+		' Reset the internal flags:
+		IsRemoteHandle = False
 		Accepted = False
 		Confirmed = False
 		
@@ -110,6 +117,19 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 	End
 	
 	' Methods (Public):
+	
+	' This safely updates the last timeout status. (Used for remote 'MegaPackets')
+	Method AutoUpdateTimeoutStatus:Void()
+		#If CONFIG = "debug"
+			If (Not IsRemoteHandle) Then
+				Return
+			Endif
+		#End
+		
+		UpdateTimeoutStatus()
+		
+		Return
+	End
 	
 	#Rem
 		This allocates a 'Packet' using the 'Network' property,
@@ -228,6 +248,13 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 	' Methods (Private):
 	Private
 	
+	' This updates the internal timeout-snapshot.
+	Method UpdateTimeoutStatus:Void()
+		LastTimeSnapshot = Eternity.GetTime()
+		
+		Return
+	End
+	
 	Method ReleasePacket:Void(P:Packet)
 		' Restore the specified 'Packet' object's 'Offset'.
 		P.Offset = 0
@@ -260,8 +287,8 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		Return Self._Type
 	End
 	
-	Method PacketsReceived:Int() Property
-		Return Self._PacketsReceived
+	Method PacketsStaged:Int() Property
+		Return Self._PacketsStaged
 	End
 	
 	Method Network:NetworkEngine() Property
@@ -270,6 +297,23 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 	
 	Method Destination:Client() Property
 		Return Self._Destination
+	End
+	
+	' This describes if this 'MegaPacket' was created by a remote node.
+	Method IsRemoteHandle:Bool() Property Final
+		Return Self._IsRemoteHandle
+	End
+	
+	Method CanTimeout:Bool() Property Final
+		Return IsRemoteHandle
+	End
+	
+	Method TimeSinceLastUpdate:Duration() Property Final
+		If (CanTimeout) Then
+			Return Eternity.TimeDifference(LastTimeSnapshot)
+		Endif
+		
+		Return 0
 	End
 	
 	' Properties (Protected):
@@ -287,8 +331,8 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		Return
 	End
 	
-	Method PacketsReceived:Void(Input:Int) Property
-		Self._PacketsReceived = Input
+	Method PacketsStaged:Void(Input:Int) Property
+		Self._PacketsStaged = Input
 		
 		Return
 	End
@@ -301,6 +345,12 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 	
 	Method Destination:Void(Input:Client) Property
 		Self._Destination = Input
+		
+		Return
+	End
+	
+	Method IsRemoteHandle:Void(Input:Bool) Property
+		Self._IsRemoteHandle = Input
 		
 		Return
 	End
@@ -325,20 +375,19 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 	' Fields (Protected):
 	Protected
 	
+	' This is used to detect timeouts for remote packet representations.
+	Field LastTimeSnapshot:TimePoint
+	
 	Field _Network:NetworkEngine
 	Field _Destination:Client
 	
 	Field _ID:PacketID ' = 0 ' INITIAL_PACKET_ID
 	Field _Type:MessageType
 	
-	Field _PacketsReceived:Int
-	
-	Public
-	
-	' Fields (Private):
-	Private
+	Field _PacketsStaged:Int
 	
 	' Internal flags:
+	Field _IsRemoteHandle:Bool
 	
 	' This specifies if this 'MegaPacket' has been accepted initially by the other end.
 	Field Accepted:Bool

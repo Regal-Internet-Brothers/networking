@@ -62,6 +62,7 @@ Class NetworkSerial Abstract
 	Const MEGA_PACKET_RESPONSE_TOO_MANY_CHUNKS:PacketExtResponse = 0
 	Const MEGA_PACKET_RESPONSE_ACCEPT:PacketExtResponse = 1
 	Const MEGA_PACKET_RESPONSE_ABORT:PacketExtResponse = 2
+	Const MEGA_PACKET_RESPONSE_TIMEOUT:PacketExtResponse = 2 ' 4 <- For now, this is just an abort operation.
 	
 	' This specifies that the other end is done using one of our 'MegaPacket' objects.
 	Const MEGA_PACKET_RESPONSE_CLOSE:PacketExtResponse = 3

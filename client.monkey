@@ -113,12 +113,28 @@ Class Client
 			Endif
 		Endif
 		
+		' Update our waiting 'MegaPackets'.
+		UpdateWaitingMegaPackets(Network)
+		
 		If (Not Pinging And Eternity.TimeDifference(PingTimer) >= Network.PingFrequency) Then
 			' Send a ping-message to this client.
 			Network.SendPing(Self)
 			
 			Pinging = True
 		Endif
+		
+		Return
+	End
+	
+	Method UpdateWaitingMegaPackets:Void(Network:NetworkEngine)
+		For Local MP:= Eachin WaitingMegaPackets
+			' Check for a timeout:
+			If (MP.TimeSinceLastUpdate >= Network.MegaPacketTimeout) Then
+				Network.AbortMegaPacket(MP, True, NetworkEngine.MEGA_PACKET_RESPONSE_TIMEOUT)
+				
+				Continue
+			Endif
+		Next
 		
 		Return
 	End
@@ -197,6 +213,9 @@ Class Client
 	Method GetWaitingMegaPacket:MegaPacket(ID:PacketID)
 		For Local MP:= Eachin WaitingMegaPackets
 			If (MP.ID = ID) Then
+				' Update this handle's timeout status.
+				MP.AutoUpdateTimeoutStatus()
+				
 				Return MP
 			Endif
 		Next
