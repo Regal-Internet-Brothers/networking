@@ -12,8 +12,9 @@
 # Import brl.socket
 # Import brl.asyncevent
 
+<p>
 This acts as the main implementation-module, import [[networking]] (Ideally) or this. For details, view the [[NetworkEngine]] class's documentation. This API reserves the right to ignore "Async" settings if necessary. In addition, argument defaults described by this documentation may not reflect the actual code, but will be present regardless of their real values. In other words, optional argument values may be different from this document.
-
+</p>
 
 # Class ProtocolType Extends Int
 
@@ -941,3 +942,154 @@ See also: [[ReadMessage]], [[ReadExtendedPacketChunk]]
 
 <p>This is provided for convenience; calls the [[ReadMessageBody|main implementation]] using @C's [[Client.Address]] property.</p>
 <p><b>This method is protected.</b></p>
+
+# Method WriteMessage:Void(Output:Packet, Type:MessageType, Input:Packet=Null, ExtendedPacket:Bool=False, DefaultSize:Int=0)
+
+<p><b>This method's prototype may change at a later date.</b></p>
+
+<p>
+This writes a message into @Output using @Input with @Type.
+When writing raw packets, please call [[BuildOutputMessage]] or [[BuildReliableMessage]], instead of calling this directly.
+This message does not handle the "reliable packet boolean", before this part of the message-segment.
+That reliable message "header" is expected on some transport protocols, such as UDP.
+Because of this, please call the proper "build" commands.
+</p>
+
+<p>If your intent is to write or send a normal user-level packet, use [[AllocatePacket]], [[Send]], and finally [[ReleasePacket]]</p>
+
+<p>
+* The @Output argument acts as the raw [[Stream|output stream]] for this operation.
+* The @Type argument represents the user-level type of this message.
+* The @Input argument is optional, and is used for the data-segment of the packet. NOTE: When using [[MSG_TYPE_INTERNAL]], this will directly serialize to the packet after the header.
+* The @ExtendedPacket argument should always be [[False]], unless you're writing a chunk of a user-defined message for a [[MegaPacket]]. ([[Language reference#functions|If unsure, leave blank, use default implicit argument]])
+* Changing the @DefaultSize argument from zero is "unsafe", unless you intend to related data to @Output after the calling this.
+</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[BuildOutputMessage]], [[BuildReliableMessage]], [[AllocatePacket]], [[Send]], [[ReleasePacket]]
+
+# Method RawSend:Void(Connection:Socket, RawPacket:Packet, Async:Bool=True)
+
+<p>This command is used to send <i>completely raw</i> data (@RawPacket) when using a <i>connected</i> socket (@Connection).</p>
+
+<p>
+This can be useful, as you can generate an output packet yourself,
+then send it as you see fit. Use these commands with caution.
+</p>
+
+<p>
+In general, you should avoid using this command directly, and instead
+use [[AutoSendRaw]], as it covers output semantics properly.
+</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[AutoSendRaw]], [[RawSendToAll]], [[Send]]
+
+# Method RawSend:Void(Connection:Socket, RawPacket:Packet, Address:NetworkAddress, Async:Bool=True)
+
+<p>
+This sends a <i>completely raw</i> packet (@RawPacket) to @Address, assuming the underlying transport method supports this.
+This works for (UDP) clients when @Address is the same as [[Remote]]'s [[Client.Address]].
+</p>
+
+<p>
+In general, you should avoid using this command directly, and instead
+use [[AutoSendRaw]], as it covers output semantics properly.
+</p>
+
+<p><b>This only works properly with UDP sockets.</b></p>
+<p><b>This method is protected.</b></p>
+
+See also: [[AutoSendRaw]], [[RawSendToAll]], [[Send]]
+
+# Method RawSendToAll:Void(RawPacket:Packet, Async:Bool=True)
+
+<p>This command is used to send <i>completely raw</i> data (@RawPacket) to every connected [[Client]].</p>
+<p>This is only especially useful for hosts; clients will send normally.</p>
+
+<p>
+In general, you should avoid using this command directly, and instead
+use [[AutoSendRaw]], as it covers output semantics properly.
+</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[AutoSendRaw]], [[RawSend]], [[Send]]
+
+# Method SendWithMegaPacket:Void(Data:Packet, Info:MegaPacket, Reliable:Bool=True, Async:Bool=False, Extended:Bool=False)
+
+<p>
+This sends @Data using the information provided (@Info).
+This is used to automate destination management for [[MegaPacket]] objects.
+This should only be called with [[MegaPacket|MegaPackets]] that have appropriate meta-data.
+</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[Send]]
+
+@ Method SendWithMegaPacket:Void(Data:Packet, Info:MegaPacket, Type:MessageType, Reliable:Bool=True, Async:Bool=False, Extended:Bool=False)
+
+<p>
+Like the main overload, this sends @Data using its [[MegaPacket.Destination|destination]].
+However, if no destination is supplied, this will send without one.
+</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[Send]]
+
+# Method SendTitleMessage:Void(InternalType:MessageType, Reliable:Bool=True, Async:Bool=True)
+
+<p>
+This sends an internal message in name only. This overload uses the default destination for [[Send]].
+A "title message" is an internal message that only consists of the message's title/internal-type.
+This is useful for basic messages like connection pings, connections/disconnections, etc.
+</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[Send]], [[AutoSendRaw]]
+
+# Method SendTitleMessage:Void(InternalType:MessageType, C:Client, Reliable:Bool=True, Async:Bool=True)
+
+<p>This sends a "title message" to @C. [[Send|Normal sending behavior]] applies here.</p>
+<p>For details on "title messages", view the [[SendTitleMessage|main overload's documentation]].</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[Send]], [[AutoSendRaw]]
+
+# Method SendTitleMessage:Void(InternalType:MessageType, Address:NetworkAddress, Async:Bool=True)
+
+<p>This sends a "title message" to @Address. This only really works for UDP hosts (Or similar).</p>
+<p>For details on "title messages", view the [[SendTitleMessage|main overload's documentation]].</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[Send]], [[AutoSendRaw]]
+
+# Method SendConnectMessage:Void(Async:Bool=False)
+
+<p>
+This sends a connection message ([[INTERNAL_MSG_CONNECT]]) to the default destination (Host).
+Basically, this is what a client uses to connect to a host network.
+</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[Send]], [[AutoSendRaw]]
+
+# Method SendWarningMessage:Void(PostType:MessageType, C:Client, Reliable:Bool=True, Async:Bool=True)
+
+<p>
+This sends a warning message ([[INTERNAL_MSG_WARNING]]) to @C.
+Basically, this is a way for a remote node to tell you that a message was used improperly.
+For now, these messages are internal, and don't do much. They're mainly a debugging tool.
+</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[Send]], [[AutoSendRaw]]

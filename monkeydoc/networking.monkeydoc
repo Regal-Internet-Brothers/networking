@@ -5,9 +5,23 @@
 # Import networking.packet
 # Import networking.client
 
+<p>
 The 'networking' module provides a data-oriented network I/O framework atop the internet transport layer, supporting both TCP and UDP.
+</p>
 
+<p>
 Packet-data is enclosed within a custom protocol, with slight alterations based on the underlying transport method.
 This protocol supports features like client management, reliable messaging (UDP), and extended (Multi-part) packets.
+</p>
 
+<p>
 To use this module in your applications, simply import 'networking' at the top of your program. Examples can be found in the main source directory.
+</p>
+
+<p>Documentation notes:</p>
+
+<p>
+	* These documents follow specific nomenclature:
+		* A command is described as a method or function. (Usually a part of the API; protected or public)
+		* Routines and sub-routines are small methods or functions usually used as intermediate or small parts of a working system.
+</p>
