@@ -1296,7 +1296,7 @@ See also: [[Closed]], [[Close]]
 <p>
 Please check for open-status with [[Open]] instead of this.
 Opening networks aren't closed, but they aren't open either.
-And closing networks are open, but they aren't closed yet.
+And [[Terminating|closing/terminating]] networks are open, but they aren't closed yet.
 </p>
 
 See also: [[Open]], [[Close]], [[CloseAsync]]
@@ -1306,6 +1306,11 @@ See also: [[Open]], [[Close]], [[CloseAsync]]
 <p>This will return [[True]] if [[Closed]] is [[False]], and [[Connection]]/[[Socket]] is [[Bound|bound]].</p>
 
 See also: [[Closed]], [[Host]], [[Connect]], [[Close]], [[CloseAsync]]
+
+# Method Terminating:Bool() Property
+
+<p>This states if this network is being terminated. (Closing "asynchronously")</p>
+<p>This property has protected assignment-access.</p>
 
 # Method IsClient:Bool() Property
 
@@ -1411,3 +1416,66 @@ Chunk sizes depend on 'PacketSize' on the other end.
 # Field ClientMessagesAfterDisconnect:Bool = Default_ClientMessagesAfterDisconnect
 
 <p>This specifies if normal messages should be accepted after a client has been told to disconnect.</p>
+
+# Field ReliablePacketGenerator:ReliablePacketPool
+
+A pool of [[ReliablePacket|ReliablePackets]], used for reliable packet management.
+This is only available when using UDP (Or similar) as the underlying transport protocol.
+
+<p><b>This field is protected.</b></p>
+
+# Field SystemPackets:Stack<Packet>
+
+</p>
+This is a container of packets allocated to the internal system.
+
+For more information on "system packets", see [[AddSystemPacket]].
+<p>
+
+<p><b>This field is protected.</b></p>
+
+# Field ReliablePackets:Stack<ReliablePacket>
+
+<p>
+This is a container representing reliable packets in transit.
+
+For more information on reliable packets, and how they work, see [[AllocateReliablePacket]] and [[ReliablePacket]].
+</p>
+
+<p><b>This field is protected.</b></p>
+
+# Field PendingMegaPackets:Stack<MegaPacket>
+
+<p>This is a container of pending (Local; outbound) [[MegaPacket]] objects.</p>
+<p><b>This field is protected.</b></p>
+
+# Field Connection:Socket
+
+<p>
+This acts as the primary connection-socket.
+This is what all network operations are done with when using UDP; 
+and what client acceptance is done with when using TCP.
+</p>
+
+<p><b>This field is protected.</b> To access this externally, use [[Socket]] (Use at your own risk).</p>
+
+# Field Clients:List<Client>
+
+<p>
+A collection of connected [[Client]] handles.
+For clients, the first entry is [[Remote]].
+</p>
+
+<p><b>This field is protected.</b></p>
+
+# Field CoreCallback:CoreNetworkListener
+<p><b>This field is protected.</b></p>
+
+# Field MetaCallback:MetaNetworkListener
+<p><b>This field is protected.</b></p>
+
+# Field ClientCallback:ClientNetworkListener
+<p><b>This field is protected.</b></p>
+
+# Field MegaPacketCallback:MegaPacketNetworkListener
+<p><b>This field is protected.</b></p>

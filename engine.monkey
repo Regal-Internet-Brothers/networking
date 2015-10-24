@@ -2375,6 +2375,10 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return (Not Closed And Connection.IsBound)
 	End
 	
+	Method Terminating:Bool() Property
+		Return Self._Terminating
+	End
+	
 	Method IsClient:Bool() Property
 		Return Self._IsClient
 	End
@@ -2473,6 +2477,12 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return Null
 	End
 	
+	Method Terminating:Void(Input:Bool) Property
+		Self._Terminating = Input
+		
+		Return
+	End
+	
 	Method IsClient:Void(Input:Bool) Property
 		Self._IsClient = Input
 		
@@ -2527,9 +2537,9 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Protected
 	
 	' Booleans / Flags:
-	Field Terminating:Bool
 	'Field LaunchReceivePerClient:Bool
 	
+	Field _Terminating:Bool
 	Field _IsClient:Bool
 	
 	' This may be used to toggle accepting multiple clients.
