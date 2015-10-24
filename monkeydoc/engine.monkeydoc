@@ -1261,3 +1261,153 @@ See also: [[SendPing]]
 <p><b>This method is protected.</b></p>
 
 See also: [[SendPing]]
+
+
+# Method Socket:Socket() Property
+
+<p>
+This is used to delegate the [[Connection]] field.
+When writing code for inside the engine, do not use this property.
+Everywhere else (External systems), use this.
+</p>
+
+See also: [[Connection]]
+
+# Method SocketType:ProtocolType() Property
+
+<p>This represents the transport protocol used by the network.</p>
+<p>This property has protected assignment-access.</p>
+
+See also: [[ProtocolToString]]
+
+# Method Bound:Bool() Property
+
+<p>
+This states if [[Socket]]/[[Connection]] has been bound.
+If the network is [[Closed|closed]], this will always return [[False]].
+</p>
+
+See also: [[Closed]], [[Close]]
+
+# Method Closed:Bool() Property
+
+<p>This states if the network is closed.</p>
+
+<p>
+Please check for open-status with [[Open]] instead of this.
+Opening networks aren't closed, but they aren't open either.
+And closing networks are open, but they aren't closed yet.
+</p>
+
+See also: [[Open]], [[Close]], [[CloseAsync]]
+
+# Method Open:Bool() Property
+
+<p>This will return [[True]] if [[Closed]] is [[False]], and [[Connection]]/[[Socket]] is [[Bound|bound]].</p>
+
+See also: [[Closed]], [[Host]], [[Connect]], [[Close]], [[CloseAsync]]
+
+# Method IsClient:Bool() Property
+
+<p>This states if this is a "client network". ([[True]] if started via [[Connect]])</p>
+<p>This property has protected assignment-access.</p>
+
+# Method MultiConnection:Bool() Property
+
+<p>
+This corresponds with the constructor argument of the same name.
+Basically, this dictates whether more than one (Client) connection is allowed.
+</p>
+
+<p>This property has protected assignment-access.</p>
+
+# Method HasCallback:Bool() Property
+
+<p>This specifies if this network has <i>at least one</i> callback.</p>
+
+# Method HasCoreCallback:Bool() Property
+
+<p>This specifies if [[CoreCallback]] is available.</p>
+
+# Method HasMetaCallback:Bool() Property
+
+<p>This specifies if [[MetaCallback]] is available.</p>
+
+# Method HasClientCallback:Bool() Property
+
+<p>This specifies if [[ClientCallback]] is available.</p>
+
+# Method HasMegaPacketCallback:Bool() Property
+
+<p>This specifies if [[MegaPacketCallback]] is available.</p>
+
+# Method HasClient:Bool() Property
+
+<p>This indicates if there is at least one [[Client]] in this network that is <i><b>not</b></i> [[Client.Closing|closing/disconnecting]].</p>
+
+# Method HasDisconnectingClient:Bool() Property
+
+<p>This indicates if there is at least one [[Client]] in this network that <i><b>is</b></i> [[Client.Closing|closing/disconnecting]].</p>
+
+# Method ClientCount:Int() Property
+
+<p>This counts the number of [[Client|Clients]] who are connected to this network, and are not [[Client.Closing|closing/disconnecting]].</p>
+
+# Method RawClientCount:Int() Property
+
+<p>This counts the number of [[Client]] handles in the [[Clients]] container, <i><b>without</b></i> caring about their [[Client.Close|closing status]].</p>
+
+# Method BigEndian:Bool() Property
+
+<p>This is a proxy to [[PacketGenerator]]'s [[PacketPool.FixByteOrder]] property, which corresponds to the 'FixByteOrder' constructor argument.</p>
+
+# Method PacketSize:Int() Property
+
+<p>This is a proxy to [[PacketGenerator]]'s [[PacketPool.PacketSize]] property, which corresponds to the constructor argument of the same name.</p>
+
+# Method UDPSocket:Bool() Property
+
+<p>This returns [[True]] if [[SocketType]] reports [[SOCKET_TYPE_UDP]].</p>
+
+# Method TCPSocket:Bool() Property
+
+<p>This returns [[True]] if [[SocketType]] reports [[SOCKET_TYPE_TCP]].</p>
+
+# Method Remote:Client() Property
+
+<p>
+This represents the remote host-node for clients.
+For hosts, this always reports [[Null]].
+</p>
+
+<p><b>This property is protected.</b></p>
+
+
+# Field PacketReleaseTime:Duration
+
+This stores the amount of time it takes to forget a packet ID.
+
+# Field PacketResendTime:Duration
+
+This stores the amount of time between reliable-packet re-sends.
+
+# Field PingFrequency:Duration
+
+This stores the minimum amount of time between ping-detections.
+
+# Field MaxPing:NetworkPing
+
+This is the maximum ping a [[Client]] can have before being [[ReleaseClient|released]].
+
+# Field MaxChunksPerMegaPacket:Int
+
+<p>
+This represents the maximum number of "mega-packet" chunks allowed.
+Chunk sizes depend on 'PacketSize' on the other end.
+</p>
+
+<p>In other words, this is variable, but it should never be larger than the other side's [[PacketSize]].</p>
+
+# Field ClientMessagesAfterDisconnect:Bool = Default_ClientMessagesAfterDisconnect
+
+<p>This specifies if normal messages should be accepted after a client has been told to disconnect.</p>

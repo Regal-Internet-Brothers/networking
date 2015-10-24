@@ -537,7 +537,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		End
 		
 		Method SmartAddAsyncReceive:Void()
-			If (LaunchReceivePerClient And ExtraReceiveOperations < Clients.Count()) Then
+			If (LaunchReceivePerClient And ExtraReceiveOperations < ClientsCount) Then
 				ExtraReceiveOperations += 1
 				
 				AddAsyncReceive()
@@ -1239,7 +1239,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Endif
 		
 		#Rem
-			If (Force Or ExtraReceiveOperations < Clients.Count()) Then
+			If (Force Or ExtraReceiveOperations < ClientsCount) Then
 				' ...
 			Else
 				DeallocateSystemPacket(P)
@@ -2420,6 +2420,16 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return False
 	End
 	
+	Method HasDisconnectingClient:Bool() Property
+		For Local C:= Eachin Clients
+			If (C.Closing) Then ' Or C.Closed
+				Return True
+			Endif
+		Next
+		
+		Return False
+	End
+	
 	Method ClientCount:Int() Property
 		Local Count:= 0
 		
@@ -2430,6 +2440,10 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Next
 		
 		Return Count
+	End
+	
+	Method RawClientCount:Int() Property
+		Return Clients.Count()
 	End
 	
 	Method BigEndian:Bool() Property
@@ -2512,6 +2526,15 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	' Fields (Protected):
 	Protected
 	
+	' Booleans / Flags:
+	Field Terminating:Bool
+	'Field LaunchReceivePerClient:Bool
+	
+	Field _IsClient:Bool
+	
+	' This may be used to toggle accepting multiple clients.
+	Field _MultiConnection:Bool = Default_MultiConnection
+	
 	' A pool of 'ReliablePackets', used for reliable packet management.
 	' This is only available when using UDP as the underlying protocol.
 	Field ReliablePacketGenerator:ReliablePacketPool
@@ -2551,15 +2574,6 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	
 	' This represents the underlying protocol of this network.
 	Field _SocketType:ProtocolType = SOCKET_TYPE_UDP
-	
-	' Booleans / Flags:
-	Field Terminating:Bool
-	'Field LaunchReceivePerClient:Bool
-	
-	Field _IsClient:Bool
-	
-	' This may be used to toggle accepting multiple clients.
-	Field _MultiConnection:Bool = Default_MultiConnection
 	
 	Public
 	
