@@ -97,6 +97,18 @@ Class Client
 			Endif
 		Endif
 		
+		If (WaitingMegaPackets <> Null) Then
+			For Local MP:= Eachin WaitingMegaPackets
+				MP.Reset() ' Close()
+			Next
+			
+			If (Not ReleaseInternalData) Then
+				WaitingMegaPackets.Clear()
+			Else
+				WaitingMegaPackets = Null
+			Endif
+		Endif
+		
 		Closing = False
 		Closed = True
 		

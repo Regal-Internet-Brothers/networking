@@ -914,6 +914,15 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			Next
 		Endif
 		
+		For Local MP:= Eachin PendingMegaPackets
+			If (MP.Destination = C) Then
+				RemovePendingMegaPacket(MP)
+				
+				' TODO: Add 'MegaPacket' pooling.
+				MP.Reset()
+			Endif
+		Next
+		
 		If (HasClientCallback) Then
 			ClientCallback.OnClientDisconnected(Self, C)
 		Endif
