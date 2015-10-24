@@ -57,6 +57,7 @@ The largest possible size of a packet's header. (Used internally; experimental)
 # Const MEGA_PACKET_RESPONSE_TOO_MANY_CHUNKS:PacketExtResponse
 # Const MEGA_PACKET_RESPONSE_ACCEPT:PacketExtResponse
 # Const MEGA_PACKET_RESPONSE_ABORT:PacketExtResponse
+# Const MEGA_PACKET_RESPONSE_TIMEOUT:PacketExtResponse
 
 # Const MEGA_PACKET_RESPONSE_CLOSE:PacketExtResponse
 

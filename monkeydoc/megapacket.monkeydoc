@@ -51,6 +51,16 @@ This will only force-close the chain if [[CanCloseStreams]] is enabled. (Privide
 Obviously, this will not re-use the packet-streams like [[Close]] would. In addition, this will not use the 100% proper control-path for packet-release.
 
 
+# Method AutoUpdateTimeoutStatus:Void()
+
+<p>This is used internally, and by [[Client]] objects when dealing with remote handles.</p>
+<p>Basically, this updates an internal "time-point" used as a timer via [[TimeSinceLastUpdate]].</p>
+<p>If a remote handle idles for too long, it'll remove it, and abort the operation.</p>
+<p>Only call this if you're sure what you're doing; framework extension.</p>
+<p>This does not update the internal timer [[IsRemoteHandle|if this is not a "remote handle"]].</p>
+
+See also: [[IsRemoteHandle]], [[CanTimeout]], [[TimeSinceLastUpdate]], [[Client.UpdateWaitingMegaPackets]]
+
 # Method Extend:Packet()
 
 This is a (Mostly) internal routine, usage is not recommended unless you know what you're doing.
@@ -118,6 +128,27 @@ This property has protected assignment-access.
 This corresponds to the parent specified when creating this object.
 
 This property has protected assignment-access.
+
+# Method IsRemoteHandle:Bool() Property Final
+
+<p>If this object was created for retrieval purposes, this will return [[True]].</p>
+<p>This property may not be overridden.</p>
+
+This property has protected assignment-access.
+
+# Method CanTimeout:Bool() Property Final
+
+<p>This reports [[True]] if this [[MegaPacket]] is capable of timing-out. ([[IsRemoteHandle]])</p>
+<p>This property may not be overridden.</p>
+
+See also: [[TimeSinceLastUpdate]], [[AutoUpdateTimeoutStatus]], [[IsRemoteHandle]]
+
+# Method TimeSinceLastUpdate:Duration() Property Final
+
+<p>If this object can [[CanTimeout|time-out]], then this will return the amount of time passed since the last call to [[AutoUpdateTimeoutStatus]] (Or similar).</p>
+<p>This property may not be overridden.</p>
+
+See also: [[AutoUpdateTimeoutStatus]]
 
 # Method Destination:Client() Property
 

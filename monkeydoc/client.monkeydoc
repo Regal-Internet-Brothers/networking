@@ -45,7 +45,17 @@ This will close a [[Socket]] if held by this object, invalidate the [[Address]] 
 
 # Method Update:Void(Network:NetworkEngine)
 
-This is used to update a [[Client]] object. The main purpose of this is to handle reliable packet identifiers, and calculate the value of [[Ping]].
+<p>This is used to update a [[Client]] object. The main purpose of this is to handle reliable packet identifiers.</p>
+<p>But this also handles ping calculation and [[MegaPacket]] handles.</p>
+
+See also: [[UpdateWaitingMegaPackets]]
+
+# Method UpdateWaitingMegaPackets:Void(Network:NetworkEngine)
+
+<p>This updates any waiting [[MegaPacket]] handles; handles timeout semantics.</p>
+<p>This is called internally by [[Update]].</p>
+
+See also: [[Update]]
 
 # Method ProjectedPing:NetworkPing(Network:NetworkEngine)
 

@@ -138,12 +138,18 @@ This is used to specify UDP as the underlying transport protocol.
 This is used to specify TCP as the underlying transport protocol.
 
 
+# Const MEGA_PACKET_TIMEOUT_NONE:Int
+
+This is used to disable remote [[MegaPacket]] handle timeouts.
+
+
 # Const Default_PacketSize:Int
 # Const Default_PacketPoolSize:Int
 
 # Const Default_PacketReleaseTime:Duration
 # Const Default_PacketResendTime:Duration
 # Const Default_PingFrequency:Duration
+# Const Default_MegaPacketTimeout:Duration
 
 # Const Default_MaxChunksPerMegaPacket:Int
 # Const Default_MaxPing:NetworkPing
@@ -166,7 +172,7 @@ This returns a string representation of @Protocol.
 | SOCKET_TYPE_TCP | "TCP"
 
 
-# Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PingFrequency:Duration=Default_PingFrequency, MaxPing:NetworkPing=Default_MaxPing, MaxChunksPerMegaPacket:Int=Default_MaxChunksPerMegaPacket, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime)
+# Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PingFrequency:Duration=Default_PingFrequency, MaxPing:NetworkPing=Default_MaxPing, MaxChunksPerMegaPacket:Int=Default_MaxChunksPerMegaPacket, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime, MegaPacketTimeout:Duration=Default_MegaPacketTimeout)
 
 * The @PacketSize argument specifies the size used for all internally allocated packets.
 * The @PacketPoolSize argument is used to generate initial packet-objects.
@@ -176,6 +182,7 @@ This returns a string representation of @Protocol.
 * The @MaxChunksPerMegaPacket argument is used to limit the number of [[Packet]] objects an incoming [[MegaPacket]] can be initialized with.
 * The @PacketReleaseTime argument is used to describe how long it takes for a [[Client]] to remove the next reliable packet's [[PacketID]]. (UDP / unreliable transport protocols)
 * The @PacketResendTime argument specifies how long it takes for this network to [[ReliablePacket.Resend|resend]] a [[ReliablePacket]].
+* The @MegaPacketTimeout argument states how long a remote [[MegaPacket]] handle can idle before being terminated.
 
 # Method GenerateNativeSocket:Void(ProtocolString:String="stream")
 
@@ -1395,6 +1402,10 @@ This stores the amount of time it takes to forget a packet ID.
 # Field PacketResendTime:Duration
 
 This stores the amount of time between reliable-packet re-sends.
+
+# Field MegaPacketTimeout:Duration
+
+This stores the amount of time a 'MegaPacket' is allowed to idle.
 
 # Field PingFrequency:Duration
 
