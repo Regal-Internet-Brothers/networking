@@ -18,10 +18,11 @@ This protocol supports features like client management, reliable messaging (UDP)
 To use this module in your applications, simply import 'networking' at the top of your program. Examples can be found in the main source directory.
 </p>
 
-<p>Documentation notes:</p>
+Documentation notes:
 
 <p>
-	* These documents follow specific nomenclature:
-		* A command is described as a method or function. (Usually a part of the API; protected or public)
-		* Routines and sub-routines are small methods or functions usually used as intermediate or small parts of a working system.
+These documents follow specific nomenclature:
+
+* A command is described as a method or function. (Usually a part of the API; protected or public)
+* Routines and sub-routines are small methods or functions usually used as intermediate or small parts of a working system.
 </p>

@@ -767,7 +767,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		This command should only be called by users for debugging purposes,
 		or in the case of lax disconnection environments.
 		
-		This is used internally by 'DisconnectClient', which is
+		This is used internally by 'Disconnect', which is
 		the proper way to disconnect a 'Client' from this network.
 	#End
 	
@@ -929,6 +929,16 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Local ID:= NextReliablePacketID
 		
 		NextReliablePacketID += 1
+		
+		Return ID
+	End
+	
+	' This may be used to retrieve the next mega-packet identifier.
+	' This will increment an internal ID-counter; use with caution.
+	Method GetNextMegaPacketID:PacketID()
+		Local ID:= NextMegaPacketID
+		
+		NextMegaPacketID += 1
 		
 		Return ID
 	End
@@ -2028,7 +2038,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return
 	End
 	
-	' A "title message" is an internal message that only consists of the a title/type.
+	' A "title message" is an internal message that only consists of the message's title/internal-type.
 	Method SendTitleMessage:Void(InternalType:MessageType, Reliable:Bool=True, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
@@ -2108,7 +2118,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	#Rem
-		' Potential for a future overload; multi-endpoint version:
+		' Potential for a future overload; multi-endpoint version (Also, this is undocumented):
 		Method SendMegaPacketRequest:Void(MP:MegaPacket, Reliable:Bool=True, Async:Bool=True)
 			Local P:= AllocatePacket()
 			
@@ -2125,11 +2135,11 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		End
 	#End
 	
-	' This should only be used to confirm a 'MegaPacket', not to request one. ('MP' does not have a destination)
+	' This should only be used to confirm a 'MegaPacket', not to request one.
 	Method SendMegaPacketConfirmation:Void(MP:MegaPacket, Reliable:Bool=True, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
-		Write_MegaPacket_Response(P, MP, INTERNAL_MSG_MEGA_PACKET_RESPONSE, True)
+		Write_MegaPacket_Response(P, MP, MEGA_PACKET_RESPONSE_ACCEPT, True)
 		
 		SendWithMegaPacket(P, MP, MSG_TYPE_INTERNAL, Reliable, Async)
 		
@@ -2151,7 +2161,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	#Rem
-		This is used to reject a 'MegaPacket' request. ('MP' does not have a destination)
+		This is used to reject a 'MegaPacket' object.
 		
 		The 'IsTheirPacket' argument specifies if this is an anouncement of
 		one of our 'MegaPackets' being closed prematurely, or one of theirs.
@@ -2172,7 +2182,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Method SendMegaPacketRejection:Void(MP:MegaPacket, Reason:PacketExtResponse, IsTheirPacket:Bool, Reliable:Bool=True, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
-		Write_MegaPacket_Response(P, MP, MEGA_PACKET_RESPONSE_ABORT, IsTheirPacket)
+		Write_MegaPacket_Response(P, MP, Reason, IsTheirPacket) ' MEGA_PACKET_RESPONSE_ABORT
 		
 		SendWithMegaPacket(P, MP, MSG_TYPE_INTERNAL, Reliable, Async)
 		
@@ -2181,7 +2191,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return
 	End
 	
-	' This routine should only be used for standalone 'MegaPackets'.
+	' This routine should only be used for standalone 'MegaPacket' actions.
 	' Actions may only be performed on previously established 'MegaPackets'.
 	Method SendStandaloneMegaPacketAction:Void(MP:MegaPacket, Action:PacketExtAction, IsTheirPacket:Bool, Async:Bool=True)
 		Local P:= AllocatePacket()
@@ -2195,7 +2205,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return
 	End
 	
-	' This is used to request the remote end handles the chunks described by 'MP'.
+	' This is used to request that the remote end handles the chunks described by 'MP'.
 	Method SendMegaPacketChunkLoadRequest:Void(MP:MegaPacket, IsTheirPacket:Bool, Async:Bool=True)
 		Local P:= AllocatePacket()
 		
@@ -2247,7 +2257,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		If 'OnFinalLink' reports 'True' before sending, this will still send the final
 		chunk request, but when finishing, it will return 'False'.
 		
-		This indicates that further sending we have finished sending requests.
+		This indicates that we have finished sending requests.
 	#End
 	
 	Method SendMegaPacketChunkRequest:Bool(MP:MegaPacket, Async:Bool=True)
@@ -2294,7 +2304,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Since this doesn't rely on 'Client' objects, such behavior is unrelated.
 		If you're using a 'Client' object's address for this, you're "doing it wrong".
 		
-		You should use 'DisconnectClient', or 'ForceDisconnect'.
+		You should use 'Disconnect', or 'ForceDisconnect'.
 		
 		Less ideally, but still a better option than this,
 		is the other overload for this command.
@@ -2307,21 +2317,6 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		SendTitleMessage(INTERNAL_MSG_DISCONNECT, Address, False) ' True
 		
 		Return
-	End
-	
-	Public
-	
-	' Methods (Private):
-	Private
-	
-	' This may be used to retrieve the next mega-packet identifier.
-	' This will increment an internal ID-counter; use with caution.
-	Method GetNextMegaPacketID:PacketID()
-		Local ID:= NextMegaPacketID
-		
-		NextMegaPacketID += 1
-		
-		Return ID
 	End
 	
 	' I/O related:

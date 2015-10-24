@@ -15,6 +15,10 @@
 <p>
 This acts as the main implementation-module, import [[networking]] (Ideally) or this. For details, view the [[NetworkEngine]] class's documentation. This API reserves the right to ignore "Async" settings if necessary. In addition, argument defaults described by this documentation may not reflect the actual code, but will be present regardless of their real values. In other words, optional argument values may be different from this document.
 </p>
+<br>
+<p>
+As a side note, basically any routine taking a [[MegaPacket]] without a destination will use that [[MegaPacket]]'s [[MegaPacket.Destination]] property.
+</p>
 
 # Class ProtocolType Extends Int
 
@@ -603,6 +607,15 @@ This will increment an internal ID-counter; use with caution.
 
 <p><b>This method is protected.</b></p>
 
+# Method GetNextMegaPacketID:PacketID()
+
+<p>
+This may be used to retrieve the next mega-packet identifier.
+This will increment an internal ID-counter; use with caution.
+</p>
+
+<p><b>This method is protected.</b></p>
+
 # Method ConfirmReliablePacket:Bool(C:Client, ID:PacketID)
 
 <p>
@@ -1093,3 +1106,158 @@ For now, these messages are internal, and don't do much. They're mainly a debugg
 <p><b>This method is protected.</b></p>
 
 See also: [[Send]], [[AutoSendRaw]]
+
+# Method SendMegaPacketRequest:Void(MP:MegaPacket, C:Client, Reliable:Bool=True, Async:Bool=True)
+
+<p>This is used to initiate sending a [[MegaPacket]] (@MP) to @C. ([[INTERNAL_MSG_REQUEST_MEGA_PACKET]])</p>
+<p>(Not to be confused with [[SendMegaPacketConfirmation|confirmation]])</p>
+
+<p><b>This method is protected.</b></p>
+
+# Method SendMegaPacketConfirmation:Void(MP:MegaPacket, Reliable:Bool=True, Async:Bool=True)
+
+<p>This is used to confirm a [[MegaPacket]] (@MP). ([[INTERNAL_MSG_MEGA_PACKET_RESPONSE]]; [[MEGA_PACKET_RESPONSE_ACCEPT]])</p>
+<p>(Not to be confused with [[SendMegaPacketRequest|requesting]])</p>
+
+<p><b>This method is protected.</b></p>
+
+# Method SendMegaPacketClose:Void(MP:MegaPacket, IsTheirPacket:Bool=True, Reliable:Bool=True, Async:Bool=True)
+
+<p>This is used to close a [[MegaPacket]] (@MP). ([[INTERNAL_MSG_MEGA_PACKET_RESPONSE]]; [[MEGA_PACKET_RESPONSE_CLOSE]])</p>
+<p>The @IsTheirPacket argument specifies if we're closing one of their [[MegaPacket|MegaPackets]], or one of ours.</p>
+
+<p><b>This method is protected.</b></p>
+
+# Method SendMegaPacketRejection:Void(ID:PacketID, Reason:PacketExtResponse, IsTheirPacket:Bool, C:Client, Reliable:Bool=True, Async:Bool=True)
+
+<p>
+This is used to reject a [[MegaPacket]] object. ([[INTERNAL_MSG_MEGA_PACKET_RESPONSE]])
+Basically, this handles network-output for [[AbortMegaPacket]].
+</p>
+
+<p>
+The @IsTheirPacket argument specifies if this is an anouncement of one of
+our [[MegaPacket|MegaPackets]] being closed prematurely, or one of theirs.
+</p>
+
+<p><b>This method is protected.</b></p>
+
+# Method SendMegaPacketRejection:Void(MP:MegaPacket, Reason:PacketExtResponse, IsTheirPacket:Bool, Reliable:Bool=True, Async:Bool=True)
+
+<p>
+This works like the [[SendMegaPacketRejection|main overload]], only this one takes a
+[[MegaPacket]], and uses its meta-data ([[MegaPacket.ID]]). ([[INTERNAL_MSG_MEGA_PACKET_RESPONSE]])
+</p>
+
+<p><b>This method is protected.</b></p>
+
+# Method SendStandaloneMegaPacketAction:Void(MP:MegaPacket, Action:PacketExtAction, IsTheirPacket:Bool, Async:Bool=True)
+
+<p>
+This should only be used for standalone [[MegaPacket]] actions. ([[INTERNAL_MSG_MEGA_PACKET_ACTION]])
+Actions may only be performed on previously established [[MegaPacket|MegaPackets]].
+</p>
+
+<p><b>This method is protected.</b></p>
+
+# Method SendMegaPacketChunkLoadRequest:Void(MP:MegaPacket, IsTheirPacket:Bool, Async:Bool=True)
+
+<p>This is used to request that the remote end handles the chunks described by @MP. ([[INTERNAL_MSG_MEGA_PACKET_ACTION]]; [[MEGA_PACKET_ACTION_REQUEST_CHUNK_LOAD]])</p>
+<p>The @IsTheirPacket argument specifies if this was started as their [[MegaPacket]] or ours.</p>
+
+<p><b>This method is protected.</b></p>
+
+# Method SendMegaPacketChunkResize:Void(MP:MegaPacket, Async:Bool=True)
+
+<p>This tells the other end to perform a resize action (Number of chunks) on @MP; limited by [[MaxChunksPerMegaPacket]]. ([[INTERNAL_MSG_MEGA_PACKET_ACTION]]; [[MEGA_PACKET_ACTION_CHUNK_RESIZE]])</p>
+<p><b>This method is protected.</b></p>
+
+# Method SendMegaPacketChunkRequest:Void(MP:MegaPacket, Link:Int, Async:Bool=True)
+
+<p>
+This is used to request a "chunk" from a [[MegaPacket]] established on the other end (@MP's [[MegaPacket.Destination]]).
+The @Link argument specifies the "link" (Chunk) of @MP to send. ([[INTERNAL_MSG_MEGA_PACKET_ACTION]]; [[MEGA_PACKET_ACTION_REQUEST_CHUNK]])
+</p>
+
+<p><b>This method is protected.</b></p>
+
+# Method SendMegaPacketChunkRequest:Bool(MP:MegaPacket, Async:Bool=True)
+
+<p>
+This acts as an automated version of the [[SendMegaPacketChunkRequest|main overload]] (Receiving end only);
+uses the internal link-position to keep track of chunks. (Modifies @MP by changing the current link)
+- ([[INTERNAL_MSG_MEGA_PACKET_ACTION]]; [[MEGA_PACKET_ACTION_REQUEST_CHUNK]])
+</p>
+
+<p>
+If [[MegaPacket.OnFinalLink]] reports [[True]] before sending, this will still
+send the final chunk request, but when finishing, it will return [[False]].
+
+This indicates that we have finished sending requests.
+</p>
+
+<p><b>This method is protected.</b></p>
+
+# Method SendMegaPacketChunk:Void(P:Packet, MP:MegaPacket, Async:Bool=False)
+
+<p>This acts as a semi-automated send-routine for [[MessagePacket]] "chunks". (Sending end only)</p>
+<p>This will send @P using @MP's meta-data.</p>
+
+<p><b>This method is protected.</b></p>
+
+# Method SendPacketConfirmation:Void(C:Client, ID:PacketID, Async:Bool=False)
+
+<p>This is used to tell @C that we received their reliable packet with @ID as its identifier. ([[INTERNAL_MSG_PACKET_CONFIRM]])</p>
+<p><b>This method is protected.</b></p>
+
+# Method SendForceDisconnect:Void(Address:NetworkAddress)
+
+<p>ATTENTION: This overload is UDP-only; use at your own risk.</p>
+
+<p>
+This will send a disconnection message to the address specified. ([[INTERNAL_MSG_DISCONNECT]])
+Since this doesn't rely on [[Client]] objects, such behavior is unrelated.
+If you're using a [[Client]] object's address for this, you're "doing it wrong".
+You should use [[Disconnect]], or [[ForceDisconnect]] instead.
+</p>
+
+<p>Though less ideal, but still a better option than this, is the other overload(s) for this command.</p>
+
+<p>
+Calling this on a [[Client]] object's address will result in partially undefined behavior.
+The likely outcome is a connection time-out.
+</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[Disconnect]], [[ForceDisconnect]], [[Close]], [[CloseAsync]]
+
+# Method SendPing:Void(C:Client, Async:Bool=False)
+
+<p>This sends an [[INTERNAL_MSG_PING]] [[SendTitleMessage|"title message"]] to @C.</p>
+<p><b>This method is protected.</b></p>
+
+See also: [[SendPong]]
+
+# Method SendPing:Void(Async:Bool=False)
+
+<p>This sends an [[INTERNAL_MSG_PING]] [[SendTitleMessage|"title message"]] to the default destination.</p>
+<p>This overload is primarily for hosts; use at your own risk.</p>
+<p><b>This method is protected.</b></p>
+
+See also: [[SendPong]]
+
+# Method SendPong:Void(C:Client, Async:Bool=False)
+
+<p>This sends an [[INTERNAL_MSG_PONG]] [[SendTitleMessage|"title message"]] to @C.</p>
+<p><b>This method is protected.</b></p>
+
+See also: [[SendPing]]
+
+# Method SendPong:Void(Async:Bool=False)
+
+<p>This sends an [[INTERNAL_MSG_PONG]] [[SendTitleMessage|"title message"]] to the default destination.</p>
+<p>This overload is primarily for clients; use at your own risk.</p>
+<p><b>This method is protected.</b></p>
+
+See also: [[SendPing]]
