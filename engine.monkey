@@ -8,6 +8,7 @@ Public
 ' Friends:
 Friend networking.client
 Friend networking.megapacket
+Friend networking.megapacketpool
 
 ' Imports (Public):
 
@@ -27,6 +28,7 @@ Private
 ' Internal:
 Import socket
 Import packetpool
+Import megapacketpool
 
 ' External:
 ' Nothing so far.
@@ -235,7 +237,10 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	Method InitMegaPackets:Void()
-		' TODO: Add 'MegaPacket' pooling.
+		If (MegaPacketGenerator = Null) Then
+			' TODO: Add pool-size configuration specifically for 'MegaPackets'.
+			MegaPacketGenerator = New MegaPacketPool(Self, PacketGenerator.InitialPoolSize)
+		Endif
 		
 		' Check if we have a pending 'MegaPacket' container, if not, make one:
 		If (PendingMegaPackets = Null) Then
@@ -288,7 +293,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			If (Clients <> Null) Then
 				If (Not IsClient) Then
 					For Local C:= Eachin Clients
-						C.Close() ' ReleaseClient(C)
+						ReleaseClient(C, False) ' C.Close(Self)
 					Next
 				Endif
 				
@@ -380,13 +385,17 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	Method DeinitMegaPackets:Void()
-		' TODO: Add 'MegaPacket' pooling.
+		ReleasePendingMegaPackets()
 		
+		Return
+	End
+	
+	' Calling this is considered unsafe; use at your own risk.
+	' This will result in timeouts on receiving ends.
+	Method ReleasePendingMegaPackets:Void()
 		' Check if we have this container, just in case.
 		If (PendingMegaPackets <> Null) Then
-			For Local MP:= Eachin PendingMegaPackets
-				MP.Reset() ' Close()
-			Next
+			MegaPacketGenerator.Release(PendingMegaPackets)
 			
 			PendingMegaPackets.Clear()
 		Endif
@@ -495,8 +504,6 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			Next
 		Endif
 		
-		' TODO: Add timeouts for 'MegaPackets'.
-		
 		Return
 	End
 	
@@ -514,6 +521,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Else
 			Remote.Update(Self)
 			
+			' Check if we've timed out:
 			If (TimedOut(Remote)) Then
 				Close()
 				
@@ -621,10 +629,14 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	#End
 	
 	Method Send:Void(MP:MegaPacket, C:Client, Type:MessageType)
+		' Set up our meta-data:
 		MP.Destination = C
 		MP.Type = Type
 		
 		MP.MarkPackets()
+		
+		' Mark this 'MegaPacket' as "sent"; used as a safety flag.
+		MP.Sent = True
 		
 		AddPendingMegaPacket(MP)
 		
@@ -856,6 +868,21 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return PacketGenerator.Release(P)
 	End
 	
+	' This will allocate a 'MegaPacket' object for use within this network.
+	' When finished with this object, please call 'ReleaseMegaPacket'.
+	' (Sending does not release a 'MegaPacket' formally)
+	Method AllocateMegaPacket:MegaPacket()
+		Return MegaPacketGenerator.Allocate()
+	End
+	
+	' This should only be called on an object allocated with 'AllocateMegaPacket'.
+	' Please call 'ReleasePendingMegaPacket' (Or equivalent) when dealing with specialized 'MegaPackets'.
+	Method ReleaseMegaPacket:Void(MP:MegaPacket)
+		MegaPacketGenerator.Release(MP)
+		
+		Return
+	End
+	
 	Method GetClient:Client(Address:NetworkAddress)
 		For Local C:= Eachin Clients
 			If (AddressesEqual(Address, C.Address)) Then
@@ -899,12 +926,14 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	Protected
 	
 	' This may be used to manually release a 'Client' from this network.
-	Method ReleaseClient:Void(C:Client)
+	Method ReleaseClient:Void(C:Client, RemoveInternally:Bool=True)
 		If (C = Null Or (IsClient And C = Remote)) Then
 			Return
 		Endif
 		
-		Clients.RemoveEach(C)
+		If (RemoveInternally) Then
+			Clients.RemoveEach(C)
+		Endif
 		
 		If (UDPSocket) Then
 			For Local RP:= Eachin ReliablePackets
@@ -916,10 +945,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		
 		For Local MP:= Eachin PendingMegaPackets
 			If (MP.Destination = C) Then
-				RemovePendingMegaPacket(MP)
-				
-				' TODO: Add 'MegaPacket' pooling.
-				MP.Reset()
+				ReleasePendingMegaPacket(MP)
 			Endif
 		Next
 		
@@ -927,7 +953,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			ClientCallback.OnClientDisconnected(Self, C)
 		Endif
 		
-		C.Close()
+		C.Close(Self)
 		
 		Return
 	End
@@ -938,6 +964,10 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		ReleaseClient(GetClient(S))
 		
 		Return
+	End
+	
+	Method AllocateRemoteMegaPacket:MegaPacket(ID:PacketID, Destination:Client=Null)
+		Return MegaPacketGenerator.Allocate(ID, Destination)
 	End
 	
 	' This may be used to retrieve the next reliable-packet identifier.
@@ -1013,10 +1043,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		'C.RemoveWaitingMegaPacket(ID)
 		
 		If (MP <> Null) Then
-			C.RemoveWaitingMegaPacket(MP)
-			
-			' TODO: Add 'MegaPacket' pooling.
-			MP.Reset()
+			ReleaseWaitingMegaPacket(C, MP)
 		Endif
 		
 		SendMegaPacketRejection(ID, Reason, True, C)
@@ -1032,13 +1059,10 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Endif
 		
 		If (FromClient) Then
-			MP.Destination.RemoveWaitingMegaPacket(MP)
+			AutoReleaseWaitingMegaPacket(MP)
 		Else
-			RemovePendingMegaPacket(MP)
+			ReleasePendingMegaPacket(MP)
 		Endif
-		
-		' TODO: Add 'MegaPacket' pooling.
-		MP.Reset()
 		
 		Return
 	End
@@ -1430,6 +1454,39 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Return False
 	End
 	
+	' This releases an internally allocated 'MegaPacket' object; may/will fail for externally allocated objects.
+	' The return-value of this command dictates the release-status of 'MP'.
+	' This should only be called on an object allocated with 'AllocateMegaPacket'.
+	' This does not remove any references to 'MP'.
+	Method ReleaseInternalMegaPacket:Bool(MP:MegaPacket)
+		Return MegaPacketGenerator.Release(MP, MP.Internal)
+	End
+	
+	' This removes 'MP' (A pending/local 'MegaPacket') from an internal container, then releases it.
+	Method ReleasePendingMegaPacket:Void(MP:MegaPacket)
+		RemovePendingMegaPacket(MP)
+		
+		ReleaseInternalMegaPacket(MP)
+		
+		Return
+	End
+	
+	' This removes 'MP' (A remote 'MegaPacket') from an internal container in 'C', then releases it.
+	Method ReleaseWaitingMegaPacket:Void(C:Client, MP:MegaPacket)
+		C.RemoveWaitingMegaPacket(MP)
+		
+		ReleaseInternalMegaPacket(MP)
+		
+		Return
+	End
+	
+	' This calls 'ReleaseWaitingMegaPacket' with the 'MP' argument, and its 'Destination'.
+	Method AutoReleaseWaitingMegaPacket:Void(MP:MegaPacket)
+		ReleaseWaitingMegaPacket(MP.Destination, MP)
+		
+		Return
+	End
+	
 	' I/O related:
 	
 	' If we are using TCP as our underlying protocol, then 'Source' must be specified.
@@ -1580,8 +1637,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 							Local MegaID:= ReadPacketID(P)
 							'Local Chunks:= ReadNetSize(P)
 							
-							' TODO: Add 'MegaPacket' pooling.
-							Local Mega:= New MegaPacket(Self, MegaID, C)
+							' Allocate a new 'MegaPacket' handle.
+							Local Mega:= MegaPacketGenerator.Allocate(MegaID, C) ' New MegaPacket(Self, MegaID, C)
 							
 							' Hold this 'MegaPacket' until the network considers it done.
 							C.AddWaitingMegaPacket(Mega)
@@ -1628,27 +1685,15 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 												MegaPacketCallback.OnMegaPacketSent(Self, Mega)
 											Endif
 											
-											#Rem
-												If (HasMegaPacketCallback) Then
-													MegaPacketCallback.OnMegaPacketRequestFailed(Self, Mega)
-												Endif
-											#End
-											
-											' The other end's done with our packet-data, clean up:
-											RemovePendingMegaPacket(Mega)
-											
-											' TODO: Add 'MegaPacket' pooling.
-											Mega.Reset() ' Close()
+											' The other end's done with our packet-data, clean up.
+											ReleasePendingMegaPacket(Mega)
 										Default
 											If (HasMegaPacketCallback) Then
 												MegaPacketCallback.OnMegaPacketRequestFailed(Self, Mega)
 											Endif
 											
-											' Our message was rejected, clean up:
-											RemovePendingMegaPacket(Mega)
-											
-											' TODO: Add 'MegaPacket' pooling.
-											Mega.Reset() ' Close()
+											' Our message was rejected, clean up.
+											ReleasePendingMegaPacket(Mega)
 									End Select
 								Else
 									AbortMegaPacket(C, MegaID)
@@ -1664,10 +1709,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 											Endif
 										Endif
 										
-										C.RemoveWaitingMegaPacket(MegaID)
-										
-										' TODO: Add 'MegaPacket' pooling.
-										Mega.Reset() ' Close()
+										ReleaseWaitingMegaPacket(C, Mega)
 									Else
 										SendWarningMessage(Type, C)
 										
@@ -1890,10 +1932,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 				' Tell the other end we're done with their 'MegaPacket'.
 				SendMegaPacketClose(Mega, True)
 				
-				C.RemoveWaitingMegaPacket(Mega)
-			
-				' TODO: Add 'MegaPacket' pooling.
-				Mega.Reset()
+				ReleaseWaitingMegaPacket(C, Mega)
 			Else
 				SendMegaPacketChunkRequest(Mega)
 			Endif
@@ -2614,6 +2653,9 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	' A pool of 'Packets'; used for async I/O. This is
 	' private because it has an appropriate API layer.
 	Field PacketGenerator:BasicPacketPool
+	
+	' A pool of 'MegaPackets'; used for multi-part packets.
+	Field MegaPacketGenerator:MegaPacketPool
 	
 	Public
 End

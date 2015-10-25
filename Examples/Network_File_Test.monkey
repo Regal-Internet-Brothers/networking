@@ -183,7 +183,7 @@ Class Application Extends App Implements NetworkListener Final
 	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Stream, MessageSize:Int)
 		Select Type
 			Case MESSAGE_TYPE_FILE
-				Print("Creating file (" + Message.Length + ")...")
+				Print("Creating file (" + MessageSize + " bytes)...")
 				
 				Local F:= FileStream.Open(OUTPUT_FILE_LOCATION, "w")
 				

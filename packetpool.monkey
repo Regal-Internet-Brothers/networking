@@ -45,7 +45,7 @@ Class PacketPool<PacketType> Abstract
 	
 	Public
 	
-	' Methods:
+	' Methods (Public):
 	Method Allocate:PacketType()
 		Local P:PacketType
 		

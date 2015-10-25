@@ -78,7 +78,7 @@ Class Client
 	' Destructor(s):
 	
 	' This destructor is used internally, please disconnect clients using a 'NetworkEngine'.
-	Method Close:Void(ReleaseInternalData:Bool=False)
+	Method Close:Void(Network:NetworkEngine, ReleaseInternalData:Bool=False)
 		Address = Null
 		
 		If (Connection <> Null) Then
@@ -99,7 +99,9 @@ Class Client
 		
 		If (WaitingMegaPackets <> Null) Then
 			For Local MP:= Eachin WaitingMegaPackets
-				MP.Reset() ' Close()
+				' Force-release this 'MegaPacket'; more efficient.
+				' (Makes sure to follow standard behavior)
+				Network.ReleaseInternalMegaPacket(MP)
 			Next
 			
 			If (Not ReleaseInternalData) Then

@@ -9,6 +9,7 @@ Public
 
 ' Friends:
 Friend networking.engine
+Friend networking.megapacketpool
 
 ' Imports (Public):
 
@@ -30,7 +31,7 @@ Public
 
 ' Classes:
 Class MegaPacket Extends SpecializedChainStream<Packet>
-	' Constructor(s):
+	' Constructor(s) (Public):
 	
 	#Rem
 		This constructs a 'MegaPacket' for retrieval purposes.
@@ -38,38 +39,88 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		
 		When using this constructor/purpose, please keep the
 		'ReleaseRights' argument in mind when handling 'Packet' objects.
+		
+		'MegaPackets' allocated with this constructor must be "given up"
+		(Ignored) upon integration with a 'NetworkEngine'.
 	#End
 	
 	Method New(Network:NetworkEngine, ID:PacketID, Destination:Client=Null, ReleaseRights:Bool=True)
 		' Call the super-class's implementation.
 		Super.New(Network.PacketGenerator.FixByteOrder, ReleaseRights)
 		
-		' Set the internal network to what was specified.
-		Self.Network = Network
-		
-		Self.ID = ID
-		Self.Destination = Destination
-		Self.IsRemoteHandle = True
-		
-		AutoUpdateTimeoutStatus()
+		Construct(Network, ID, Destination)
 	End
 	
 	' This constructs a 'MegaPacket' for deployment purposes.
 	' This will generate a default packet, and mark it appropriately.
-	Method New(Network:NetworkEngine, ReleaseRights:Bool=True)
+	Method New(Network:NetworkEngine, ReleaseRights:Bool=True, Internal:Bool=False)
 		' Call the super-class's implementation.
 		Super.New(Network.PacketGenerator.FixByteOrder, ReleaseRights)
 		
+		Construct(Network, Internal)
+	End
+	
+	' Constructor(s) (Protected):
+	Protected
+	
+	Method Construct:Void(Network:NetworkEngine, ID:PacketID, Destination:Client=Null)
 		' Set the internal network to what was specified.
 		Self.Network = Network
 		
-		Self.IsRemoteHandle = False
+		Construct(ID, Destination)
+		
+		Return
+	End
+	
+	Method Construct:Void(Network:NetworkEngine, Internal:Bool=False)
+		' Set the internal network to what was specified.
+		Self.Network = Network
+		
+		Construct(Internal)
+		
+		Return
+	End
+	
+	Public
+	
+	' Constructor(s) (Private):
+	Private
+	
+	' This constructor is considered "unsafe", and should not be called outside this framework.
+	' This overload does not formally construct this class's behavior in any way.
+	Method New(FixByteOrder:Bool, ReleaseRights:Bool=True)
+		' Call the super-class's implementation.
+		Super.New(FixByteOrder, ReleaseRights)
+		
+		' Nothing so far.
+	End
+	
+	' This overload is considered unsafe, and should not be called outside this framework.
+	Method Construct:Void(ID:PacketID, Destination:Client=Null)
+		Self.ID = ID
+		Self.Destination = Destination
+		Self.IsRemoteHandle = True
+		Self.Internal = True
+		
+		AutoUpdateTimeoutStatus()
+		
+		Return
+	End
+	
+	' This overload is considered unsafe, and should not be called outside this framework.
+	Method Construct:Void(Internal:Bool)
 		Self.ID = Network.GetNextMegaPacketID()
+		Self.IsRemoteHandle = False
+		Self.Internal = Internal
 		
 		If (Not ExtendAndMark(False)) Then
 			Throw New MegaPacket_UnableToExtend(Self)
 		Endif
+		
+		Return
 	End
+	
+	Public
 	
 	' Destructor(s):
 	
@@ -100,6 +151,7 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 		
 		' Reset the internal flags:
 		IsRemoteHandle = False
+		Sent = False
 		Accepted = False
 		Confirmed = False
 		
@@ -388,6 +440,12 @@ Class MegaPacket Extends SpecializedChainStream<Packet>
 	
 	' Internal flags:
 	Field _IsRemoteHandle:Bool
+	
+	' This indicates if this 'MegaPacket' has been initially sent initially.
+	Field Sent:Bool
+	
+	' This indicates if this was allocated internally by a 'NetworkEngine' / 'MegaPacketPool'.
+	Field Internal:Bool
 	
 	' This specifies if this 'MegaPacket' has been accepted initially by the other end.
 	Field Accepted:Bool
