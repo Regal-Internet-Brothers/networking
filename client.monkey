@@ -197,11 +197,6 @@ Class Client
 		Return
 	End
 	
-	Public
-	
-	' Methods (Private):
-	Private
-	
 	Method AddWaitingMegaPacket:Void(MP:MegaPacket)
 		WaitingMegaPackets.Push(MP)
 		

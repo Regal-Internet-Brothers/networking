@@ -6,6 +6,7 @@ Public
 Friend networking.engine
 
 ' Imports:
+Import networkengine
 Import megapacket
 
 ' Classes:

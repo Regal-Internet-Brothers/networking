@@ -5,6 +5,7 @@
 # Import networking.packet
 # Import networking.megapacket
 # Import networking.packetpool
+# Import networking.megapacketpool
 
 # Import eternity
 
@@ -244,7 +245,7 @@ Once they have, the [[Close]] command will be called automatically.
 
 This deinitializes reliable-packet functionality.
 
-This destructor is protected.
+<p>This destructor is protected.</p>
 
 See also: [[InitReliablePackets]]
 
@@ -252,10 +253,19 @@ See also: [[InitReliablePackets]]
 
 This deinitializes mega-packet functionality.
 
-This destructor is protected.
+<p>This destructor is protected.</p>
 
 See also: [[InitMegaPackets]]
 
+# Method ReleasePendingMegaPackets:Void()
+
+<p>This releases all pending (Local) [[MegaPacket]] objects.
+<p>
+Calling this is considered unsafe; use at your own risk.
+This will result in timeouts on receiving ends.
+</p>
+
+<p>This destructor is protected.</p>
 
 # Method ObjectEnumerator:list.Enumerator<Client>()
 
@@ -555,6 +565,20 @@ Because this is likely from a pool, please call [[ReleasePacket]] when finished 
 
 See also: [[AllocatePacket]]
 
+# Method AllocateMegaPacket:MegaPacket()
+
+<p>This will allocate a [[MegaPacket]] object for use within this network.</p>
+<p>
+When finished with this object, please call [[ReleaseMegaPacket]].
+(Sending does not release a [[MegaPacket]] formally)
+</p>
+
+# Method ReleaseMegaPacket:Void(MP:MegaPacket)
+
+<p>This should only be called on an object allocated with [[AllocateMegaPacket]].</p>
+<br>
+<p>If you're dealing with <i>specialized [[MegaPacket|MegaPackets]]</i> (Protected routines), please call [[ReleasePendingMegaPacket]] (Or [[ReleaseWaitingMegaPacket]]).</p>
+
 # Method GetClient:Client(Address:NetworkAddress)
 
 This is used to retrieve a [[Client]] object using its address.
@@ -587,23 +611,31 @@ See also: [[GetClient]]
 
 See also: [[GetClient]]
 
-# Method ReleaseClient:Void(C:Client)
+# Method ReleaseClient:Void(C:Client, RemoveInternally:Bool=True)
 
 <p>This is used to manually release a [[Client]] from this network.</p>
-<p>This will not disconnect the client, only remove it and call [[ClientNetworkListener.OnClientDisconnected]].</p>
+<p>This will not disconnect the client, only call [[ClientNetworkListener.OnClientDisconnected]], and remote it internally if @RemoveInternally is enabled.</p>
 
 <p><b>This method is protected.</b></p>
 
 See also: [[Disconnect]], [[ForceDisconnect]], [[DisconnectAll]]
 
-# Method ReleaseClient:Void(S:Socket)
+# Method ReleaseClient:Void(S:Socket, RemoveInternally:Bool=True)
 
 <p>This should only be called when using TCP.</p>
 <p>In addition, the @S must be held by a [[Client]].</p>
+<p>This calls the [[ReleaseClient|main overload]] with a [[Client]] object holding @S.</p>
 
 <p><b>This method is protected.</b></p>
 
 See also: [[Disconnect]], [[ForceDisconnect]], [[DisconnectAll]]
+
+# Method AllocateRemoteMegaPacket:MegaPacket(ID:PacketID, Destination:Client=Null)
+
+<p>This allocates a [[MegaPacket]] object for remote representation.</p>
+<p>This does not hold the returned object internally, please call [[Client.AddWaitingMegaPacket]]</p>
+
+<p><b>This method is protected.</b></p>
 
 # Method GetNextReliablePacketID:PacketID()
 
@@ -913,6 +945,44 @@ See also: [[AllocateReliablePacket]], [[ReleaseReliablePacket]]
 <p>For details on "system packets", view the [[AddSystemPacket]] command's documentation.</p>
 <p>If unsure, don't mess with this.</p>
 <p><b>This method is protected.</b></p>
+
+# Method ReleaseInternalMegaPacket:Bool(MP:MegaPacket)
+
+<p>This releases an internally allocated [[MegaPacket]] object; will likely fail for externally allocated objects (Unsafe).</p>
+<p>The return-value of this command dictates the release-status of @MP.</p>
+<p>This should only be called on an object allocated with [[AllocateMegaPacket]].</p>
+<p>This does not remove any references to @MP.</p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[AllocateMegaPacket]]
+
+# Method ReleasePendingMegaPacket:Void(MP:MegaPacket)
+
+<p>This removes @MP (A pending/local [[MegaPacket]]) from an internal container, then releases it.</p>
+<p><b>This automatically calls <i>[[RemovePendingMegaPacket]]</i> and <i>[[ReleaseInternalMegaPacket]]</i></b></p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[AllocateMegaPacket]], [[RemovePendingMegaPacket]],  [[ReleaseInternalMegaPacket]]
+
+# Method ReleaseWaitingMegaPacket:Void(C:Client, MP:MegaPacket)
+
+<p>This removes @MP (A remote [[MegaPacket]]) from an internal container in @C, then releases it.</p>
+<p><b>This automatically calls <i>[[Client.RemoveWaitingMegaPacket]]</i> and <i>[[ReleaseInternalMegaPacket]]</i></b></p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[AllocateMegaPacket]], [[Client.RemoveWaitingMegaPacket]],  [[ReleaseInternalMegaPacket]]
+
+# Method AutoReleaseWaitingMegaPacket:Void(MP:MegaPacket)
+
+<p>This calls [[ReleaseWaitingMegaPacket]] with @MP, and uses its [[Destination]] <i>instead</i> of an exact [[Client]] object provided by the user.</p>
+<p><i>For details on method-behavior, please [[ReleaseWaitingMegaPacket|view that implementation's documentation]].</i></p>
+
+<p><b>This method is protected.</b></p>
+
+See also: [[AllocateMegaPacket]], [[ReleaseWaitingMegaPacket]], [[Client.RemoveWaitingMegaPacket]],  [[ReleaseInternalMegaPacket]]
 
 # Method ReadMessage:MessageType(P:Packet, Address:NetworkAddress, Source:Socket)
 

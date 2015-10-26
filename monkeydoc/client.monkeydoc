@@ -37,11 +37,11 @@ This is an internal constructor used when constructing [[Client]] objects.
 This routine is protected, but documented for extension purposes.
 
 
-# Method Close:Void(ReleaseInternalData:Bool=False)
+# Method Close:Void(Network:NetworkEngine, ReleaseInternalData:Bool=False)
 
 This destructor is used internally. Please disconnect clients through their parent [[NetworkEngine]] objects.
 
-This will close a [[Socket]] if held by this object, invalidate the [[Address]] property, release any associated packet identifiers, and set relevant closure-flags.
+This will close a [[Socket]] if held by this object, invalidate the [[Address]] property, release any associated packet identifiers, release held [[MegaPacket]] handles, and set relevant closure-flags.
 
 # Method Update:Void(Network:NetworkEngine)
 
@@ -75,12 +75,59 @@ See also:
 
 [[ConfirmPacket]], [[Update]]
 
-
 # Method ReleaseNextPacketID:Void()
 
-This is an internal method that will automatically release the next packet identifier in the queue.
+<p>This is an internal method that will automatically release the next packet identifier in the queue.</p>
+<p>This method is protected, but is documented for extension purposes.</p>
 
-This routine is protected, but documented for extension purposes.
+# Method AddWaitingMegaPacket:Void(MP:MegaPacket)
+
+<p>This adds @MP to an internal container for "waiting" (Remote) [[MegaPacket]] objects.</p>
+<p>This method is protected, but is documented for extension purposes.</p>
+
+# Method RemoveWaitingMegaPacket:Void(MP:MegaPacket)
+
+<p>This is used to remote @MP from an internal container of "waiting" (Client-created) [[MegaPacket|MegaPackets]].</p>
+<p>This method is protected, but is documented for extension purposes.</p>
+
+See also: [[AddWaitingMegaPacket]], [[NetworkEngine.AllocateRemoteMegaPacket]]
+
+# Method RemoveWaitingMegaPacket:Void(ID:PacketID)
+
+<p>This removes a "waiting" [[MegaPacket]] with @ID; calls the [[RemoveWaitingMegaPacket|main implementation]].</p>
+<p>This method is protected, but is documented for extension purposes.</p>
+
+# Method GetWaitingMegaPacket:MegaPacket(ID:PacketID)
+
+<p>This retrieves a "waiting" [[MegaPacket]] object with @ID.</p>
+<p>For details, view the [[AddWaitingMegaPacket]] method's documentation.</p>
+
+<p>This method is protected, but is documented for extension purposes.</p>
+
+See also: [[AddWaitingMegaPacket]], [[RemoveWaitingMegaPacket]]
+
+# Method HasWaitingMegaPacket:Bool(ID:PacketID)
+
+<p>This states if a [[MegaPacket]] object with @ID is inside this object's [[WaitingMegaPackets|"waiting mega-packets" container]].</p>
+<p>This method is protected, but is documented for extension purposes.</p>
+
+See also: [[GetWaitingMegaPacket]], [[AddWaitingMegaPacket]], [[RemoveWaitingMegaPacket]]
+
+# Method ResetPacketTimer:TimePoint()
+
+<p>This resets the internal [[PacketReleaseTimer|"packet timer"]], used for releasing reliable-packet identifiers.</p>
+<p>This method is protected, but is documented for extension purposes.</p>
+
+# Method ResetPingTimer:TimePoint()
+
+<p>This resets an internal timer used for [[ProjectedPing|ping calculation]].</p>
+<p>This method is protected, but is documented for extension purposes.</p>
+
+# Method CalculatePing:Void(Network:NetworkEngine, StopPinging:Bool=True)
+
+<p>This assigns this client's ping using [[ProjectedPing]], resets the internal [[PingTimer|"ping timer"]], then resets the [[Pinging]] flag.</p>
+<p>This method is protected, but is documented for extension purposes.</p>
+
 
 # Method Closing:Bool() Property
 
@@ -118,18 +165,29 @@ The last point in time used when pinging began.
 
 This property has protected assignment-access.
 
-See also:
-
-[[Pinging]], [[Ping]]
+See also: [[Pinging]], [[Ping]]
 
 # Method Address:NetworkAddress() Property
 
 The address associated with this client; may be [[Null]] depending on the underlying transport protocol. (Available for UDP)
 
-See also:
-
-[[New]]
+See also: [[New]]
 
 # Method Connection:Socket() Property
 
 The [[Socket]] associated with this client; may be [[Null]] depending on the underlying transport protocol. (Available for TCP)
+
+
+# Field ConfirmedPackets:Deque<PacketID>
+
+<p>This is a <i>double-ended</i> <u>queue</u> of confirmed [[PacketID|PacketIDs]], representing received [[ReliablePacket|ReliablePackets]].</p>
+<p>This field is protected, but is documented for extension purposes.</p>
+
+# Field WaitingMegaPackets:Stack<MegaPacket>
+
+<p>This is a collection of "waiting" (Remotely created) [[MegaPacket]] objects.</p>
+<p>This field is protected, but is documented for extension purposes.</p>
+
+# Field PacketReleaseTimer:TimePoint
+
+<p>This is a "timer" (Point in time) used to calculate the amount of time between [[PacketID]] releases from [[ConfirmedPackets]].</p>

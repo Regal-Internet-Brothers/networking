@@ -960,8 +960,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	
 	' This should only be called when using TCP.
 	' In addition, the 'Socket' specified must be held by a client.
-	Method ReleaseClient:Void(S:Socket)
-		ReleaseClient(GetClient(S))
+	Method ReleaseClient:Void(S:Socket, RemoveInternally:Bool=True)
+		ReleaseClient(GetClient(S), RemoveInternally)
 		
 		Return
 	End
