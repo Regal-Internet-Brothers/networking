@@ -111,18 +111,29 @@ Class Application Extends App Implements NetworkListener Final
 					Print("Sending out our file in bulk...")
 					
 					Local F:= FileStream.Open(INPUT_FILE_LOCATION, "r")
-					Local R:= New Repeater(F, True, True, False)
-					
-					Local MP:= New MegaPacket(Server)
-					
-					'DebugStop()
-					
-					R.Add(MP)
-					
-					R.TransferInput()
+					Local R:= New Repeater(F, False, True, False)
 					
 					For Local C:= Eachin Server
+						' Seek back to the beginning of the file.
+						F.Seek(0)
+						
+						' Allocate a new 'MegaPacket' handle.
+						Local MP:= Server.AllocateMegaPacket()
+						
+						' Add our newly generated 'MegaPacket' handle ('MP') to our repeater.
+						R.Add(MP)
+						
+						' Transfer our repeater's input ('F') into 'MP'.
+						R.TransferInput()
+						
+						' Send out 'MP' to 'C'.
 						Server.Send(MP, C, MESSAGE_TYPE_FILE)
+						
+						' Remove 'MP' from out repeater.
+						R.Remove(MP)
+						
+						' Relinquish control of 'MP'.
+						Server.ReleaseMegaPacket(MP)
 					Next
 					
 					R.Close()
@@ -181,6 +192,8 @@ Class Application Extends App Implements NetworkListener Final
 	End
 	
 	Method OnReceiveMessage:Void(Network:NetworkEngine, C:Client, Type:MessageType, Message:Stream, MessageSize:Int)
+		Print("Received message at: " + Millisecs())
+		
 		Select Type
 			Case MESSAGE_TYPE_FILE
 				Print("Creating file (" + MessageSize + " bytes)...")
