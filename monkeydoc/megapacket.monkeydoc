@@ -11,12 +11,11 @@ A [[MegaPacket]] is a "chain stream" of [[Packet]] objects. Basically, this mean
 
 # Method New(Network:NetworkEngine, ID:PacketID, Destination:Client=Null, ReleaseRights:Bool=True)
 
-This constructs a [[MegaPacket]] for retrieval purposes.
-This does not start with a default [[Packet]].
+<p>This constructs a [[MegaPacket]] for retrieval purposes. This does not start with a default [[Packet]].</p>
+<p>When using this constructor/purpose, please keep the @ReleaseRights argument in mind when handling [[Packet]] objects.</p>
+<p>[[MegaPacket|MegaPackets]] allocated with this constructor must be "given up" (Ignored) upon integration with a [[NetworkEngine]].</p>
 
-When using this constructor/purpose, please keep the
-@ReleaseRights argument in mind when handling [[Packet]] objects.
-
+<p>
 * The @Network argument will act as the parent to this [[MegaPacket]], and will be queried for [[Packet]] handles.
 
 * The @ID argument specifies the packet identifier associated with this exact [[MegaPacket]]. (Not to be confused with the IDs used by normal [[Packet]] objects)
@@ -24,6 +23,7 @@ When using this constructor/purpose, please keep the
 * The @Destination argument specifies the sending node's [[Client]] handle.
 
 * The @ReleaseRights argument specifies if this object has the right to call [[Packet.Release]] on the packets it allocates and/or holds.
+</p>
 
 # Method New(Network:NetworkEngine, ReleaseRights:Bool=True)
 
@@ -33,6 +33,17 @@ This will generate a default packet, and mark it appropriately.
 * The @Network argument will act as the parent to this [[MegaPacket]], and will be queried for [[Packet]] handles.
 Like the retrieval overload, the @ReleaseRights argument is used to control releasing the packets this governs.
 
+# Method Construct:Void(Network:NetworkEngine, ID:PacketID, Destination:Client=Null)
+
+<p>This is used internally to construct a [[MegaPacket]]; used directly by systems like [[MegaPacketPool|MegaPacketPools]].</p>
+<p>This is represented externally by the [[New|standard constructors]].</p>
+
+<p><b>This constructor is protected.</b></p>
+
+# Method Construct:Void(Network:NetworkEngine, Internal:Bool=False)
+
+<p>This is used internally to construct a [[MegaPacket]]; used directly by systems like [[MegaPacketPool|MegaPacketPools]].</p>
+<p><b>This constructor is protected.</b></p>
 
 # Method Reset:Void()
 
@@ -40,15 +51,19 @@ This is just a wrapper for [[Close]] at the moment.
 
 # Method Close:Void()
 
-This overrides the super-class's 'Close' implementation.
-This is akin to the [[Stream]] class's [[Stream.Close]] method.
+<p>This overrides the super-class's 'Close' implementation.</p>
+<p>This is akin to the [[Stream]] class's [[Stream.Close]] method.</p>
 
-This will release all internal packet handles if given closure rights.
+<p>This will release all internal packet handles if given closure rights.</p>
+
+See also: [[ForceClose]], [[Reset]]
 
 # Method ForceClose:Void()
 
-This will only force-close the chain if [[CanCloseStreams]] is enabled. (Privided by the parent class; basically "ReleaseRights")
-Obviously, this will not re-use the packet-streams like [[Close]] would. In addition, this will not use the 100% proper control-path for packet-release.
+<p>This will only force-close the chain if [[CanCloseStreams]] is enabled. (Privided by the parent class; basically "ReleaseRights")</p>
+<p>Obviously, this will not re-use the packet-streams like [[Close]] would. In addition, this will not use the 100% proper control-path for packet-release.</p>
+
+See also: [[Close]], [[Reset]]
 
 
 # Method AutoUpdateTimeoutStatus:Void()

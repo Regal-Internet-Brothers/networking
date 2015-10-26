@@ -1,4 +1,93 @@
 # Module networking.engine
 
-# Import networkengine
-# Import megapacket
+# Import networking.engine
+# Import networking.megapacket
+
+
+# Class MegaPacketPool
+
+This is used internally to manage [[MegaPacket]] handles. This includes internally allocated [[MegaPacket|MegaPackets]], like when representing remote instances, and user-created [[MegaPacket|MegaPackets]] / pending [[MegaPacket|MegaPackets]] (If network-managed storage was used by the user). This (Along with [[NetworkEngine]] and [[Client]]) handle(s) the details of storage when sending [[MegaPacket|MegaPackets]], and similar operations that could be costly storage-wise.
+
+# Method New(Network:NetworkEngine, PoolSize:Int)
+
+<p>This is the primary constructor used to create this pool.</p>
+<p>
+* @Network will be held internally, and used to allocate [[MegaPacket]] objects however this class or object sees fit.</p>
+* @PoolSize is used to specify how many initial entries this pool will have.
+</p>
+
+# Method BuildPool:Void(PoolSize:Int)
+
+<p>This is an internal constructor used to generate a segment of the internal pool.</p>
+<p><b>This constructor is protected.</b></p>
+
+See also: [[GeneratePacket]]
+
+
+# Method Allocate:MegaPacket()
+
+<p>This <i>overload</i> allocates a local/general-purpose [[MegaPacket]] object.</p>
+<p>When finished with this object, please call [[Release]] on the output object.</p>
+
+See also: [[Release]], [[Contains]]
+
+# Method Allocate:MegaPacket(ID:PacketID, Destination:Client=Null)
+
+<p>This <i>overload</i> allocates a remote/client-allocated [[MegaPacket]] object.</p>
+<p>When finished with this object, please call [[Release]] on the output object.</p>
+
+# Method Release:Bool(MP:MegaPacket, Force:Bool=False)
+
+<p>
+This "deallocates" @MP, making it a part of this pool again. Please <b>do not</b> pass objects that weren't allocated via [[Allocate]] to this command.
+</p>
+
+<p>
+* The @MP argument specifies the target [[MegaPacket]] object.
+* The @Force argument is used to ensure release of @MP. If disabled, this may refuse the object based on its internal flags.
+</p.
+
+<br>
+
+<p>The return-value of this method indicates if 'MP' was accepted; may still be accepted automatically later.</p>
+<p><b>Though this documentation states to use this command, that is only when using this class directly.</b></p>
+<p><b>Classes like [[NetworkEngine]] manage objects of this class directly, and follow different storage practices.</b></p>
+<p>Please follow appropriate APIs that house these calls.</p>
+
+See also: [[Allocate]], [[Contains]]
+
+# Method Release:Void(MegaPackets:Stack<MegaPacket>, Force:Bool=True)
+
+<p>This (Usually forcibly) releases every [[MegaPacket]] in @MegaPackets.</p>
+<p>Exact behavior is dictated by @Force; for details, view the [[Release|main overload's documentation]].</p>
+
+See also: [[Allocate]], [[Contains]]
+
+# Method Contains:Bool(MP:MegaPacket)
+
+<p>This reports if @MP is held internally. (Could describe undefined behavior if [[True]])</p>
+
+# Method RawAllocate:MegaPacket()
+
+<p>This is used internally to allocate a <i>raw</i> [[MegaPacket]]. (Doesn't imply a call to [[Construct]])</p>
+<p>Please call [[Allocate]] instead of this; this has undefined behavior.</p>
+
+<p><b>This method is protected</b></p>
+
+# Method GeneratePacket:MegaPacket()
+
+<p>This creates a new [[MetaPacket]] object, without calling [[Construct]].</p>
+<p>The object produced by this routine should immediately be stored and/or constructed, and should not be delegated until it is ready.</p>
+
+<p><b>This method is protected</b></p>
+
+
+# Method Network:NetworkEngine() Property
+
+<p>This represents the constructor-argument of the same name; parent [[NetworkEngine]] used for [[MegaPacket]] allocation.</p>
+<p>This property has protected assignment rights.</p>
+
+
+# Field Elements:Stack<MegaPacket>
+
+<p>This is a collection of (Raw) [[MegaPacket]] objects, allocated internally for external delegation.</p>
