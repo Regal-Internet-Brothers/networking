@@ -1,7 +1,7 @@
-# Module networking.client
+# Module regal.networking.client
 
-# Import networking.engine
-# Import networking.megapacket
+# Import regal.networking.engine
+# Import regal.networking.megapacket
 
 # Class Client
 

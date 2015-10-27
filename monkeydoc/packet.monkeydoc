@@ -1,7 +1,7 @@
-# Module networking.packet
+# Module regal.networking.packet
 
-# Import networking.engine
-# Import networking.client
+# Import regal.networking.engine
+# Import regal.networking.client
 
 # Import brl.stream
 # Import brl.databuffer

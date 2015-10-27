@@ -1,8 +1,8 @@
-# Module networking.serial
+# Module regal.networking.serial
 
-# Import networking
-# Import networking.packet
-# Import networking.megapacket
+# Import regal.networking
+# Import regal.networking.packet
+# Import regal.networking.megapacket
 
 # Import brl.socket
 # Import brl.stream

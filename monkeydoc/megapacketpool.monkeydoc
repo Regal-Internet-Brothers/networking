@@ -1,7 +1,7 @@
-# Module networking.engine
+# Module regal.networking.engine
 
-# Import networking.engine
-# Import networking.megapacket
+# Import regal.networking.engine
+# Import regal.networking.megapacket
 
 
 # Class MegaPacketPool

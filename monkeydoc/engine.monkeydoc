@@ -1,13 +1,13 @@
-# Module networking.engine
+# Module regal.networking.engine
 
-# Import networking.serial
-# Import networking.client
-# Import networking.packet
-# Import networking.megapacket
-# Import networking.packetpool
-# Import networking.megapacketpool
+# Import regal.networking.serial
+# Import regal.networking.client
+# Import regal.networking.packet
+# Import regal.networking.megapacket
+# Import regal.networking.packetpool
+# Import regal.networking.megapacketpool
 
-# Import eternity
+# Import regal.eternity
 
 # Import monkey.list
 # Import brl.socket

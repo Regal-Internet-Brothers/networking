@@ -1,9 +1,9 @@
-# Module networking.megapacket
+# Module regal.networking.megapacket
 
 For details, view the [[MegaPacket]] class's description.
 
-# Import networking.packet
-# Import networking.engine
+# Import regal.networking.packet
+# Import regal.networking.engine
 
 # Class MegaPacket Extends SpecializedChainStream<Packet>
 

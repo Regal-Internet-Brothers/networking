@@ -1,12 +1,12 @@
 
-# Module networking
+# Module regal.networking
 
-# Import networking.engine
-# Import networking.packet
-# Import networking.client
+# Import regal.networking.engine
+# Import regal.networking.packet
+# Import regal.networking.client
 
 <p>
-The 'networking' module provides a data-oriented network I/O framework atop the internet transport layer, supporting both TCP and UDP.
+The 'regal.networking' module provides a data-oriented network I/O framework atop the internet transport layer, supporting both TCP and UDP.
 </p>
 
 <p>
@@ -15,7 +15,7 @@ This protocol supports features like client management, reliable messaging (UDP)
 </p>
 
 <p>
-To use this module in your applications, simply import 'networking' at the top of your program. Examples can be found in the main source directory.
+To use this module in your applications, simply import 'regal.networking' at the top of your program. Examples can be found in the main source directory.
 </p>
 
 Documentation notes:
@@ -23,6 +23,6 @@ Documentation notes:
 <p>
 These documents follow specific nomenclature:
 
-* A command is described as a method or function. (Usually a part of the API; protected or public)
+* A command is described as one or more methods or functions. (Usually a part of the API; protected or public)
 * Routines and sub-routines are small methods or functions usually used as intermediate or small parts of a working system.
 </p>

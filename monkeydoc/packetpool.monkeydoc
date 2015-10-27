@@ -1,7 +1,7 @@
-# Module networking.packetpool
+# Module regal.networking.packetpool
 
-# Import networking.packet
-# Import networking.megapacket
+# Import regal.networking.packet
+# Import regal.networking.megapacket
 
 # Import brl.socket
 
