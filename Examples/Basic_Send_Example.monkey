@@ -11,10 +11,10 @@ Public
 #MOJO_AUTO_SUSPEND_ENABLED = False
 
 ' Imports:
-Import networking
-Import networking.megapacket
+Import regal.networking
+Import regal.networking.megapacket
 
-'Import stringutil
+'Import regal.stringutil
 
 #If Not USE_MOJOWRAPPER
 	Import mojo

@@ -13,19 +13,19 @@ Public
 #NETWORK_FILE_TEST_HASH = True
 
 ' Imports:
-Import networking
-Import networking.megapacket
+Import regal.networking
+Import regal.networking.megapacket
 
-Import ioutil.repeater
+Import regal.ioutil.repeater
 
 #If NETWORK_FILE_TEST_HASH
-	Import hash
+	Import regal.hash
 #End
 
 #If Not USE_MOJOWRAPPER
 	Import mojo
 #Else
-	Import mojoemulator
+	Import regal.mojoemulator
 #End
 
 Import brl.asyncevent

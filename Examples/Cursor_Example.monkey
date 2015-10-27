@@ -33,7 +33,7 @@ Import brl.stream
 	Import reflection
 #End
 
-Import networking
+Import regal.networking
 
 ' Classes:
 Class Game Extends App Implements CoreNetworkListener, MetaNetworkListener, ClientNetworkListener Final
