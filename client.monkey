@@ -3,9 +3,9 @@ Strict
 Public
 
 ' Friends:
-Friend networking.engine
-Friend networking.packet
-Friend networking.megapacket
+Friend regal.networking.engine
+Friend regal.networking.packet
+Friend regal.networking.megapacket
 
 ' Imports (Public):
 
@@ -13,7 +13,7 @@ Friend networking.megapacket
 Import engine
 
 ' External:
-Import eternity
+Import regal.eternity
 
 ' Imports (Private):
 Private

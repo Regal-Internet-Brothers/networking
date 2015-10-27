@@ -6,9 +6,9 @@ Public
 #NETWORK_ENGINE_FAIL_ON_TOO_MANY_CHUNKS = True
 
 ' Friends:
-Friend networking.client
-Friend networking.megapacket
-Friend networking.megapacketpool
+Friend regal.networking.client
+Friend regal.networking.megapacket
+Friend regal.networking.megapacketpool
 
 ' Imports (Public):
 
@@ -20,7 +20,7 @@ Import packet
 Import megapacket
 
 ' External:
-Import eternity
+Import regal.eternity
 
 ' Imports (Private):
 Private

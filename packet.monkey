@@ -3,15 +3,15 @@ Strict
 Public
 
 ' Friends:
-Friend networking.engine
-Friend networking.packetpool
+Friend regal.networking.engine
+Friend regal.networking.packetpool
 
 ' Imports:
 Import engine
 Import client
 
-Import ioutil.publicdatastream
-Import eternity
+Import regal.ioutil.publicdatastream
+Import regal.eternity
 
 Import brl.databuffer
 'Import brl.datastream

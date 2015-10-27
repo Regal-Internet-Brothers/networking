@@ -8,8 +8,8 @@ Strict
 Public
 
 ' Friends:
-Friend networking.engine
-Friend networking.megapacketpool
+Friend regal.networking.engine
+Friend regal.networking.megapacketpool
 
 ' Imports (Public):
 
@@ -23,9 +23,8 @@ Private
 Import engine
 
 ' External:
-Import ioutil.chainstream
-
-Import eternity
+Import regal.ioutil.chainstream
+Import regal.eternity
 
 Public
 

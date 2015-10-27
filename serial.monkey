@@ -5,7 +5,7 @@ Public
 ' Imports (Public):
 Import packet
 
-'Import typetool
+'Import regal.typetool
 
 Import brl.stream
 

@@ -3,7 +3,7 @@ Strict
 Public
 
 ' Friends:
-Friend networking.engine
+Friend regal.networking.engine
 
 ' Imports:
 Import engine
