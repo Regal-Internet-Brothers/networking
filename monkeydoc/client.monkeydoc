@@ -191,3 +191,4 @@ The [[Socket]] associated with this client; may be [[Null]] depending on the und
 # Field PacketReleaseTimer:TimePoint
 
 <p>This is a "timer" (Point in time) used to calculate the amount of time between [[PacketID]] releases from [[ConfirmedPackets]].</p>
+<p>This field is protected, but is documented for extension purposes.</p>
