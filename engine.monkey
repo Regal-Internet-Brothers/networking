@@ -4,6 +4,7 @@ Public
 
 ' Preprocessor related:
 #NETWORK_ENGINE_FAIL_ON_TOO_MANY_CHUNKS = True
+'#NETWORK_ENGINE_EXPERIMENTAL = True
 
 ' Friends:
 Friend regal.networking.client
@@ -31,7 +32,9 @@ Import packetpool
 Import megapacketpool
 
 ' External:
-' Nothing so far.
+#If NETWORK_ENGINE_EXPERIMENTAL
+	Import regal.stringutil
+#End
 
 Public
 
@@ -1501,6 +1504,14 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			
 			If (Not IsClient) Then
 				C = GetClient(Address)
+				
+				#If NETWORK_ENGINE_EXPERIMENTAL
+					If (C = Null And AllowWebSockets) Then
+						If (WebSocketHook(P, Address, Source)) Then
+							Return MSG_TYPE_INTERNAL
+						Endif
+					Endif
+				#End
 			Else
 				C = Remote
 				
@@ -2405,6 +2416,64 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	
 	Public
 	
+	' Methods (Private):
+	Private
+	
+	#If NETWORK_ENGINE_EXPERIMENTAL
+		' Experimental WebSocket handshake hook.
+		' This handles the handshake a "web socket" performs initially.
+		' This handles exceptions, and returns 'True' if the message was read as a handshake.
+		Method WebSocketHook:Bool(P:Stream, Address:NetworkAddress, Source:Socket)
+			' Constant variable(s):
+			Const SEPARATOR:= ": "
+			Const SEPARATOR_MARGIN:= 2 ' SEPARATOR.Length
+			
+			Const SAMPLE_STR:= "GET"
+			Const SAMPLE_SIZE:= 3 ' SAMPLE_STR.Length
+			
+			' Local variable(s):
+			Local InitPosition:= P.Position
+			
+			Try
+				' Read the first bit of the message:
+				Local TestStr:= P.ReadString(SAMPLE_SIZE)
+				
+				' Seek back, no matter the outcome
+				P.Seek(InitPosition)
+				
+				If (TestStr = SAMPLE_STR) Then
+					' TODO: Pool HTTP-header maps.
+					Local HTTPContent:= New StringMap<String>()
+					
+					DebugStop()
+					
+					While (Not P.Eof())
+						Local Line:= P.ReadLine()
+						
+						Local SeparatorPos:= Line.Find(SEPARATOR)
+						
+						If (SeparatorPos <> STRING_INVALID_LOCATION) Then
+							Local KeyStr:= Line[..SeparatorPos]
+							Local ValueStr:= Line[(SeparatorPos+SEPARATOR_MARGIN)..]
+							
+							HTTPContent.Add(KeyStr, ValueStr)
+						Endif
+					Wend
+					
+					' Tell the caller the good news.
+					Return True
+				Endif
+			Catch E:StreamError
+				P.Seek(InitPosition)
+			End Try
+			
+			' Return the default response. (Failure)
+			Return False
+		End
+	#End
+	
+	Public
+	
 	' Properties (Public):
 	Method Socket:Socket() Property
 		Return Self.Connection
@@ -2521,6 +2590,11 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	
 	Method TCPSocket:Bool() Property
 		Return (SocketType = SOCKET_TYPE_TCP)
+	End
+	
+	' Experimental / undocumented. (Do not use this property)
+	Method AllowWebSockets:Bool() Property
+		Return TCPSocket
 	End
 	
 	' Properties (Protected):

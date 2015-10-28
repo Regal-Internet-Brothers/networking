@@ -10,6 +10,8 @@ Public
 ' If enabled, this could cause timeouts.
 #MOJO_AUTO_SUSPEND_ENABLED = False
 
+'#NETWORK_ENGINE_EXPERIMENTAL = True
+
 ' Imports:
 Import regal.networking
 Import regal.networking.megapacket
@@ -208,6 +210,7 @@ Class TestApplication Extends App Implements CoreNetworkListener, MetaNetworkLis
 			Elseif (Network = Server) Then
 				Print("Server socket bound.")
 				
+				#Rem
 				For Local I:= 1 To 1 ' 2 ' 4 ' 8
 					Local Client:= New NetworkEngine()
 					
@@ -217,6 +220,7 @@ Class TestApplication Extends App Implements CoreNetworkListener, MetaNetworkLis
 					
 					ClientNetworks.AddLast(Client)
 				Next
+				#End
 			Else
 				Print("Unknown network bound.")
 			Endif
