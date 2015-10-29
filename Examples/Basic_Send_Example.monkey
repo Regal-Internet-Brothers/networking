@@ -11,6 +11,7 @@ Public
 #MOJO_AUTO_SUSPEND_ENABLED = False
 
 '#NETWORK_ENGINE_EXPERIMENTAL = True
+'#HASH_EXPERIMENTAL = True
 
 ' Imports:
 Import regal.networking
@@ -21,7 +22,7 @@ Import regal.networking.megapacket
 #If Not USE_MOJOWRAPPER
 	Import mojo
 #Else
-	Import mojoemulator
+	Import regal.mojoemulator
 #End
 
 Import brl.asyncevent
@@ -59,11 +60,13 @@ Class TestApplication Extends App Implements CoreNetworkListener, MetaNetworkLis
 	
 	' Methods:
 	Method OnUpdate:Int()
-		If (KeyHit(KEY_ESCAPE)) Then
-			OnClose()
-			
-			Return 0
-		Endif
+		#If Not USE_MOJOWRAPPER
+			If (KeyHit(KEY_ESCAPE)) Then
+				OnClose()
+				
+				Return 0
+			Endif
+		#End
 		
 		UpdateAsyncEvents()
 		

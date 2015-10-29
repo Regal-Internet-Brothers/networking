@@ -37,3 +37,6 @@ This module uses the ['brl.socket'](https://github.com/blitz-research/monkey/blo
 ### TODO:
 * Optimize UDP reliable-packet output. (Asynchronous bottleneck)
 * Implement packet routing for client-to-client communications. (Potential security problems)
+
+### References:
+* Experimental WebSocket support based on [FWeinb](https://github.com/FWeinb)'s '[websocket.mod](https://github.com/FWeinb/websocket.mod)' (BlitzMax implementation).

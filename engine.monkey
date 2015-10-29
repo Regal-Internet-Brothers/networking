@@ -6,6 +6,10 @@ Public
 #NETWORK_ENGINE_FAIL_ON_TOO_MANY_CHUNKS = True
 '#NETWORK_ENGINE_EXPERIMENTAL = True
 
+#If NETWORK_ENGINE_EXPERIMENTAL
+	#HASH_EXPERIMENTAL = True
+#End
+
 ' Friends:
 Friend regal.networking.client
 Friend regal.networking.megapacket
@@ -31,9 +35,17 @@ Import socket
 Import packetpool
 Import megapacketpool
 
+#If NETWORK_ENGINE_EXPERIMENTAL
+	Import websocket
+#End
+
 ' External:
 #If NETWORK_ENGINE_EXPERIMENTAL
 	Import regal.stringutil
+	Import regal.hash
+	Import regal.byteorder
+	
+	Import regal.ioutil.stringstream
 #End
 
 Public
@@ -2425,6 +2437,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		' This handles exceptions, and returns 'True' if the message was read as a handshake.
 		Method WebSocketHook:Bool(P:Stream, Address:NetworkAddress, Source:Socket)
 			' Constant variable(s):
+			Const WEB_SOCKET_GUID:String = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+			
 			Const SEPARATOR:= ": "
 			Const SEPARATOR_MARGIN:= 2 ' SEPARATOR.Length
 			
@@ -2434,9 +2448,13 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			' Local variable(s):
 			Local InitPosition:= P.Position
 			
+			'DebugStop()
+			
 			Try
 				' Read the first bit of the message:
 				Local TestStr:= P.ReadString(SAMPLE_SIZE)
+				
+				'Print(P.ReadString())
 				
 				' Seek back, no matter the outcome
 				P.Seek(InitPosition)
@@ -2445,27 +2463,131 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 					' TODO: Pool HTTP-header maps.
 					Local HTTPContent:= New StringMap<String>()
 					
-					DebugStop()
-					
 					While (Not P.Eof())
 						Local Line:= P.ReadLine()
 						
 						Local SeparatorPos:= Line.Find(SEPARATOR)
 						
 						If (SeparatorPos <> STRING_INVALID_LOCATION) Then
-							Local KeyStr:= Line[..SeparatorPos]
+							Local KeyStr:= Line[..SeparatorPos].ToLower()
 							Local ValueStr:= Line[(SeparatorPos+SEPARATOR_MARGIN)..]
 							
 							HTTPContent.Add(KeyStr, ValueStr)
 						Endif
 					Wend
 					
-					' Tell the caller the good news.
-					Return True
+					Local Handshake:= HTTPContent.Get("sec-websocket-key")
+					
+					If (Handshake.Length > 0) Then
+						Local Accept:= (Handshake + WEB_SOCKET_GUID)
+						
+						Local Input:= New StringStream(256, True)
+						Local Output:= New StringStream(256, True)
+						
+						' Write our data, then present it:
+						Input.WriteString(Accept)
+						Input.Seek(0)
+						
+						Print(Accept)
+						
+						Local RawSHA:= RAW_SHA1(Input, Input.Length)
+						
+						For Local I:= 0 Until 5
+							Print(HexBE(RawSHA[I]))
+						Next
+						
+						Input.Reset()
+						
+						' Write our raw SHA data:
+						'For Local I:= (RawSHA.Length-1) To 0 Step -1
+						For Local I:= 0 Until RawSHA.Length
+							Input.WriteInt(RawSHA[I])
+						Next
+						
+						' Provide an initial pointer for later data consumption.
+						Input.Seek(0)
+						
+						' Reset our output, so we can use it again.
+						Output.Reset()
+						
+						EncodeBase64(Input, Output)
+						
+						Accept = Output.EchoHere()
+						
+						' Unsafe 'Packet' usage:
+						
+						' Allocate a raw output-packet.
+						Local OutputPacket:= AllocatePacket()
+						
+						OutputPacket.WriteLine("HTTP/1.1 101 Switching Protocols")
+						'OutputPacket.WriteLine("HTTP/1.1 101 WebSocket Protocol Handshake")
+						OutputPacket.WriteLine("Upgrade: WebSocket")
+						OutputPacket.WriteLine("Connection: Upgrade")
+						OutputPacket.WriteLine("Sec-WebSocket-Origin: " + HTTPContent.Get("origin"))
+						OutputPacket.WriteLine("Sec-WebSocket-Location: ws://" + HTTPContent.Get("host") + "/")
+						OutputPacket.WriteLine("Sec-WebSocket-Accept: " + Accept)
+						'OutputPacket.WriteLine("Sec-WebSocket-Version: 3, 13")
+						'OutputPacket.WriteLine("Sec-WebSocket-Protocol: chat")
+						OutputPacket.WriteString("~r~n")
+						
+						RawSend(Source, OutputPacket, False)
+						
+						ReleasePacket(OutputPacket)
+						
+						Input.Close()
+						Output.Close()
+						
+						' Tell the caller the good news.
+						Return True
+					#Rem
+					Else
+						Local SK1:= HTTPContent.Get("sec-websocket-key1")
+						
+						If (SK1.Length > 0) Then
+							Local SK2:= HTTPContent.Get("sec-websocket-key2")
+							
+							If (SK2.Length > 0) Then
+								' Unsafe 'Packet' usage:
+								
+								' Allocate a raw output-packet.
+								Local Output:= AllocatePacket()
+								
+								Output.WriteLine("HTTP/1.1 101 WebSocket Protocol Handshake")
+								Output.WriteLine("Upgrade: WebSocket") ' websocket
+								Output.WriteLine("Connection: Upgrade")
+								Output.WriteLine("Sec-WebSocket-Origin: " + HTTPContent.Get("origin"))
+								Output.WriteLine("Sec-WebSocket-Location: ws://" + HTTPContent.Get("host") + "/")
+								'Output.WriteLine("Sec-WebSocket-Protocol: text")
+								Output.WriteLine("~n")
+								Output.WriteLine("Sec-WebSocket-Accept: " + HTTPContent.Get("sec-websocket-key"))
+								Output.WriteLine("Sec-WebSocket-Version: 3, 13")
+								
+								Output.WriteString(Handshake)
+								
+								Local SK3:= "" ' P.ReadLine()
+								
+								Local Handshake:= websocket.GetHandshake(SK1, SK2, SK3)
+								
+								RawSend(Source, Output, Address, False)
+								
+								ReleasePacket(Output)
+								
+								' Tell the caller the good news.
+								Return True
+							Endif
+						Endif
+					#End
+					Endif
+				Else
+					Print(P.ReadLine())
+					
+					DebugStop()
 				Endif
 			Catch E:StreamError
-				P.Seek(InitPosition)
+				' Nothing so far.
 			End Try
+			
+			P.Seek(InitPosition)
 			
 			' Return the default response. (Failure)
 			Return False
