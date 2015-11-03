@@ -127,7 +127,11 @@ Interface NetworkListener Extends CoreNetworkListener, MetaNetworkListener, Clie
 End
 
 ' Classes:
+#If NETWORKING_SOCKET_BACKEND_BRL
 Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptComplete, IOnConnectComplete, IOnSendComplete, IOnSendToComplete, IOnReceiveFromComplete, IOnReceiveComplete
+#Else
+Class NetworkEngine Extends NetworkSerial
+#End
 	' Constant variable(s):
 	Const PORT_AUTOMATIC:= 0
 	
@@ -165,7 +169,11 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			Return True
 		Endif
 		
-		Return (X.Port = Y.Port And X.Host = Y.Host)
+		#If NETWORKING_SOCKET_BACKEND_BRL
+			Return (X.Port = Y.Port And X.Host = Y.Host)
+		#Else ' NETWORKING_SOCKET_BACKEND_WEBSOCKET
+			Return (X.ToString() = Y.ToString()) ' ToString
+		#End
 	End
 	
 	Function ProtocolToString:String(Protocol:ProtocolType)
@@ -204,7 +212,9 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			Close()
 		Endif
 		
-		Connection = New Socket(ProtocolString)
+		#If NETWORKING_SOCKET_BACKEND_BRL
+			Connection = New Socket(ProtocolString)
+		#End
 		
 		Return
 	End
@@ -213,20 +223,22 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 		Self.SocketType = Protocol
 		Self.IsClient = IsClient
 		
-		Select Protocol
-			Case SOCKET_TYPE_UDP
-				GenerateNativeSocket("datagram")
-				
-				Self.NextReliablePacketID = INITIAL_PACKET_ID
-				
-				InitReliablePackets()
-			Case SOCKET_TYPE_TCP
-				If (IsClient) Then
-					GenerateNativeSocket("stream")
-				Else
-					GenerateNativeSocket("server")
-				Endif
-		End Select
+		#If NETWORKING_SOCKET_BACKEND_BRL
+			Select Protocol
+				Case SOCKET_TYPE_UDP
+					GenerateNativeSocket("datagram")
+					
+					Self.NextReliablePacketID = INITIAL_PACKET_ID
+					
+					InitReliablePackets()
+				Case SOCKET_TYPE_TCP
+					If (IsClient) Then
+						GenerateNativeSocket("stream")
+					Else
+						GenerateNativeSocket("server")
+					Endif
+			End Select
+		#End
 		
 		InitMegaPackets()
 		
@@ -319,7 +331,13 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			Endif
 			
 			' Close our main connection.
-			Connection.Close(); Connection = Null
+			#If NETWORKING_SOCKET_BACKEND_BRL
+				Connection.Close()
+			#Elseif NETWORKING_SOCKET_BACKEND_WEBSOCKET
+				Connection.close()
+			#End
+			
+			Connection = Null
 			
 			' Clear any system-packet handles.
 			SystemPackets.Clear()
@@ -459,18 +477,22 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	Method Host:Bool(Port:Int, Async:Bool=False, Protocol:ProtocolType=SOCKET_TYPE_UDP, MultiConnection:Bool=Default_MultiConnection, Hostname:String="")
-		Init(Protocol, False)
-		
-		Self.MultiConnection = MultiConnection
-		
-		If (Not Bind(Port, Async, Hostname)) Then
-			Close()
-			
+		#If NETWORKING_SOCKET_BACKEND_WEBSOCKET
 			Return False
-		Endif
-		
-		' Return the default response.
-		Return True
+		#Else
+			Init(Protocol, False)
+			
+			Self.MultiConnection = MultiConnection
+			
+			If (Not Bind(Port, Async, Hostname)) Then
+				Close()
+				
+				Return False
+			Endif
+			
+			' Return the default response.
+			Return True
+		#End
 	End
 	
 	Method Connect:Bool(Address:NetworkAddress, Async:Bool=False, Protocol:ProtocolType=SOCKET_TYPE_UDP)
@@ -1086,20 +1108,22 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	' If 'Async' is disabled, this will return whether the bind operation was successful.
 	' If enabled, this will only return 'False' when an internal error occurs.
 	Method Bind:Bool(Connection:Socket, Port:Int, Async:Bool=False, Hostname:String="")
-		' Check for errors:
-		If (Connection.IsBound) Then
-			Return False
-		Endif
-		
-		If (Not Async) Then
-			Local Response:= Connection.Bind(Hostname, Port)
+		#If NETWORKING_SOCKET_BACKEND_BRL
+			' Check for errors:
+			If (Connection.IsBound) Then
+				Return False
+			Endif
 			
-			OnBindComplete(Response, Connection)
-			
-			Return Response
-		Else
-			Connection.BindAsync(Hostname, Port, Self)
-		Endif
+			If (Not Async) Then
+				Local Response:= Connection.Bind(Hostname, Port)
+				
+				OnBindComplete(Response, Connection)
+				
+				Return Response
+			Else
+				Connection.BindAsync(Hostname, Port, Self)
+			Endif
+		#End
 		
 		' Return the default response.
 		Return True
@@ -1111,16 +1135,36 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	' This performs a raw connection operation on a socket.
-	Method RawConnect:Bool(Connection:Socket, Host:String, Port:Int, Async:Bool=False)
-		If (Async) Then
-			Connection.ConnectAsync(Host, Port, Self)
-		Else
-			Connection.Connect(Host, Port)
-		Endif
-		
-		' Return the default response.
-		Return True
-	End
+	' 'Connection' should be 'Null' if 'Socket' is a 'WebSocket'.
+	#If NETWORKING_SOCKET_BACKEND_WEBSOCKET
+		' This overload is only here for compatibility purposes, when using 'WebSockets'.
+		Method RawConnect:Bool(_Connection:Socket, Host:String, Port:Int, Async:Bool=True)
+			' Safety checks:
+			If (_Connection <> Null Or Not Async) Then
+				Return False
+			Endif
+			
+			Self.Connection = createWebSocket(New NetworkAddress(Host, Port)) ' ToString()
+			
+			Self.Connection.addEventListener("open", Self)
+			Self.Connection.addEventListener("close", Self)
+			Self.Connection.addEventListener("message", Self)
+			Self.Connection.addEventListener("error", Self)
+			
+			Return (Self.Connection <> Null)
+		End
+	#Else
+		Method RawConnect:Bool(Connection:Socket, Host:String, Port:Int, Async:Bool=False)
+			If (Async) Then
+				Connection.ConnectAsync(Host, Port, Self)
+			Else
+				Connection.Connect(Host, Port)
+			Endif
+			
+			' Return the default response.
+			Return True
+		End
+	#End
 	
 	' This will use the internal socket to perform a 'RawConnect' operation.
 	Method RawConnect:Bool(Host:String, Port:Int, Async:Bool=False)
@@ -1128,210 +1172,237 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	End
 	
 	' Call-backs:
-	Method OnBindComplete:Void(Bound:Bool, Source:Socket)
-		If (HasCoreCallback) Then
-			CoreCallback.OnNetworkBind(Self, Bound)
-		Endif
-		
-		If (Bound) Then
-			If (Not IsClient) Then
-				If (TCPSocket) Then
-					Connection.AcceptAsync(Self)
+	#If NETWORKING_SOCKET_BACKEND_BRL
+		' BRL Socket specific:
+		Method OnBindComplete:Void(Bound:Bool, Source:Socket)
+			If (HasCoreCallback) Then
+				CoreCallback.OnNetworkBind(Self, Bound)
+			Endif
+			
+			If (Bound) Then
+				If (Not IsClient) Then
+					If (TCPSocket) Then
+						Connection.AcceptAsync(Self)
+					Else
+						AutoLaunchReceive(Source, True)
+					Endif
 				Else
 					AutoLaunchReceive(Source, True)
 				Endif
-			Else
-				AutoLaunchReceive(Source, True)
 			Endif
-		Endif
-		
-		Return
-	End
-	
-	Method OnConnectComplete:Void(Connected:Bool, Source:Socket)
-		OnBindComplete(Connected, Source)
-		
-		If (Connected) Then
-			SendConnectMessage()
-		Endif
-		
-		Return
-	End
-	
-	Method OnAcceptComplete:Void(Socket:Socket, Source:Socket)
-		If (Socket = Null) Then
+			
 			Return
-		Endif
+		End
 		
-		AutoLaunchReceive(Socket)
+		Method OnConnectComplete:Void(Connected:Bool, Source:Socket)
+			OnBindComplete(Connected, Source)
+			
+			If (Connected) Then
+				SendConnectMessage()
+			Endif
+			
+			Return
+		End
 		
-		' Check if we can accept more connections:
-		If (MultiConnection) Then
-			Source.AcceptAsync(Self) ' Connection
-		Endif
-		
-		Return
-	End
-	
-	Method OnReceiveFromComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Address:NetworkAddress, Source:Socket)
-		#Rem
-			If (Source <> Connection) Then
+		Method OnAcceptComplete:Void(Socket:Socket, Source:Socket)
+			If (Socket = Null) Then
 				Return
 			Endif
-		#End
-		
-		Local P:= RetrieveWaitingPacketHandle(Data)
-		
-		If (P <> Null) Then
-			P.SetLength(Count)
 			
-			' Manually disable 'Socket' usage when using UDP:
-			If (UDPSocket) Then
-				ReadMessage(P, Address, Source)
-			Else
-				ReadMessage(P, Address, Source)
+			AutoLaunchReceive(Socket)
+			
+			' Check if we can accept more connections:
+			If (MultiConnection) Then
+				Source.AcceptAsync(Self) ' Connection
 			Endif
 			
-			P.ResetLength()
-			
-			AutoLaunchReceive(Source, P)
-		Endif
+			Return
+		End
 		
-		Return
-	End
-	
-	Method OnReceiveComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Source:Socket)
-		If (UDPSocket) Then
-			' In the event this operation could not be completed, relaunch:
-			If (Count <= 0) Then
-				Local P:= RetrieveWaitingPacketHandle(Data)
+		Method OnReceiveFromComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Address:NetworkAddress, Source:Socket)
+			#Rem
+				If (Source <> Connection) Then
+					Return
+				Endif
+			#End
+			
+			Local P:= RetrieveWaitingPacketHandle(Data)
+			
+			If (P <> Null) Then
+				P.SetLength(Count)
 				
-				If (P <> Null) Then
-					AutoLaunchReceive(Source, P)
+				' Manually disable 'Socket' usage when using UDP:
+				If (UDPSocket) Then
+					ReadMessage(P, Address, Source)
+				Else
+					ReadMessage(P, Address, Source)
 				Endif
 				
-				Return
+				P.ResetLength()
+				
+				AutoLaunchReceive(Source, P)
 			Endif
 			
-			If (Closed) Then
-				Return
-			Endif
-			
-			OnReceiveFromComplete(Data, Offset, Count, Remote.Address, Source)
-		Else
-			If (Count < 0) Then ' (<= 0)
+			Return
+		End
+		
+		Method OnReceiveComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Source:Socket)
+			If (UDPSocket) Then
+				' In the event this operation could not be completed, relaunch:
+				If (Count <= 0) Then
+					Local P:= RetrieveWaitingPacketHandle(Data)
+					
+					If (P <> Null) Then
+						AutoLaunchReceive(Source, P)
+					Endif
+					
+					Return
+				Endif
+				
 				If (Closed) Then
 					Return
 				Endif
 				
-				If (IsClient) Then
-					' This will automatically clear any existing system-packets.
-					Close()
-				Else
-					Local P:= RetrieveWaitingPacketHandle(Data)
-					
-					If (P <> Null) Then
-						DeallocateSystemPacket(P)
+				OnReceiveFromComplete(Data, Offset, Count, Remote.Address, Source)
+			Else
+				If (Count < 0) Then ' (<= 0)
+					If (Closed) Then
+						Return
 					Endif
 					
-					ReleaseClient(Source)
+					If (IsClient) Then
+						' This will automatically clear any existing system-packets.
+						Close()
+					Else
+						Local P:= RetrieveWaitingPacketHandle(Data)
+						
+						If (P <> Null) Then
+							DeallocateSystemPacket(P)
+						Endif
+						
+						ReleaseClient(Source)
+					Endif
+					
+					Return
+				Endif
+				
+				OnReceiveFromComplete(Data, Offset, Count, Source.RemoteAddress, Source)
+			Endif
+			
+			Return
+		End
+		
+		Method OnSendToComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Address:NetworkAddress, Source:Socket)
+			Local P:= RetrieveWaitingPacketHandle(Data)
+			
+			If (P <> Null) Then
+				If (Count > 0 And HasCoreCallback) Then
+					CoreCallback.OnSendComplete(Self, P, Address, Count)
+				Endif
+				
+				' Remove our transit-reference to this packet.
+				P.Release()
+				
+				' Now that we've removed our transit-reference,
+				' attempt to formally deallocate the packet in question.
+				DeallocateSystemPacket(P)
+			Endif
+			
+			Return
+		End
+		
+		Method OnSendComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Source:Socket)
+			If (Count = 0) Then
+				Local P:= RetrieveWaitingPacketHandle(Data)
+				
+				If (P <> Null) Then
+					P.Release()
+					
+					DeallocateSystemPacket(P)
 				Endif
 				
 				Return
 			Endif
 			
-			OnReceiveFromComplete(Data, Offset, Count, Source.RemoteAddress, Source)
-		Endif
-		
-		Return
-	End
-	
-	Method OnSendToComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Address:NetworkAddress, Source:Socket)
-		Local P:= RetrieveWaitingPacketHandle(Data)
-		
-		If (P <> Null) Then
-			If (Count > 0 And HasCoreCallback) Then
-				CoreCallback.OnSendComplete(Self, P, Address, Count)
-			Endif
-			
-			' Remove our transit-reference to this packet.
-			P.Release()
-			
-			' Now that we've removed our transit-reference,
-			' attempt to formally deallocate the packet in question.
-			DeallocateSystemPacket(P)
-		Endif
-		
-		Return
-	End
-	
-	Method OnSendComplete:Void(Data:DataBuffer, Offset:Int, Count:Int, Source:Socket)
-		If (Count = 0) Then
-			Local P:= RetrieveWaitingPacketHandle(Data)
-			
-			If (P <> Null) Then
-				P.Release()
-				
-				DeallocateSystemPacket(P)
+			If (UDPSocket) Then
+				OnSendToComplete(Data, Offset, Count, Remote.Address, Source)
+			Else
+				OnSendToComplete(Data, Offset, Count, Source.RemoteAddress, Source)
 			Endif
 			
 			Return
-		Endif
-		
-		If (UDPSocket) Then
-			OnSendToComplete(Data, Offset, Count, Remote.Address, Source)
-		Else
-			OnSendToComplete(Data, Offset, Count, Source.RemoteAddress, Source)
-		Endif
-		
-		Return
-	End
+		End
+	#End
+	
+	#If NETWORKING_SOCKET_BACKEND_WEBSOCKET
+		' WebSocket specific:
+		Method handleEvent:Int(E:Event) ' Void
+			Select E.type
+				Case "open" ' "onopen"
+					Print("WebSocket open.")
+			End Select
+			
+			Return 0
+		End
+	#End
 	
 	Method AutoLaunchReceive:Void(S:Socket, P:Packet, Force:Bool=False)
-		If (IsClient Or TCPSocket) Then
-			LaunchAsyncReceive(S, P)
-		Else
-			LaunchAsyncReceiveFrom(S, P)
-		Endif
-		
-		#Rem
-			If (Force Or ExtraReceiveOperations < ClientsCount) Then
-				' ...
+		#If NETWORKING_SOCKET_BACKEND_BRL
+			If (IsClient Or TCPSocket) Then
+				LaunchAsyncReceive(S, P)
 			Else
-				DeallocateSystemPacket(P)
-				
-				ExtraReceiveOperations = Max((ExtraReceiveOperations - 1), 0)
+				LaunchAsyncReceiveFrom(S, P)
 			Endif
+			
+			#Rem
+				If (Force Or ExtraReceiveOperations < ClientsCount) Then
+					' ...
+				Else
+					DeallocateSystemPacket(P)
+					
+					ExtraReceiveOperations = Max((ExtraReceiveOperations - 1), 0)
+				Endif
+			#End
 		#End
 		
 		Return
 	End
 	
 	Method AutoLaunchReceive:Void(S:Socket, Force:Bool=False)
-		AutoLaunchReceive(S, AllocateSystemPacket(), Force)
+		#If NETWORKING_SOCKET_BACKEND_BRL
+			AutoLaunchReceive(S, AllocateSystemPacket(), Force)
+		#End
 		
 		Return
 	End
 	
 	' The 'P' object must be added internally by an external source:
+	' This routine does not work with 'WebSockets'.
 	Method LaunchAsyncReceive:Void(S:Socket, P:Packet)
-		P.Reset()
-		
-		S.ReceiveAsync(P.Data, P.Offset, P.DataLength, Self)
+		#If NETWORKING_SOCKET_BACKEND_BRL
+			P.Reset()
+			
+			S.ReceiveAsync(P.Data, P.Offset, P.DataLength, Self)
+		#End
 		
 		Return
 	End
 	
+	' This routine does not work with 'WebSockets'.
 	Method LaunchAsyncReceiveFrom:Void(S:Socket, P:Packet, Address:NetworkAddress)
-		P.Reset()
-		
-		S.ReceiveFromAsync(P.Data, P.Offset, P.DataLength, Address, Self)
+		#If NETWORKING_SOCKET_BACKEND_BRL
+			P.Reset()
+			
+			S.ReceiveFromAsync(P.Data, P.Offset, P.DataLength, Address, Self)
+		#End
 		
 		Return
 	End
 	
 	Method LaunchAsyncReceiveFrom:Void(S:Socket, P:Packet)
-		LaunchAsyncReceiveFrom(S, P, New NetworkAddress())
+		#If NETWORKING_SOCKET_BACKEND_BRL
+			LaunchAsyncReceiveFrom(S, P, New NetworkAddress())
+		#End
 		
 		Return
 	End
@@ -2047,13 +2118,24 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			' Obtain a transit-reference.
 			RawPacket.Obtain()
 			
-			If (Async) Then
-				Connection.SendAsync(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Self)
-			Else
-				Connection.Send(RawPacket.Data, RawPacket.Offset, RawPacket.Length)
+			#If NETWORKING_SOCKET_BACKEND_BRL
+				If (Async) Then
+					Connection.SendAsync(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Self)
+				Else
+					Connection.Send(RawPacket.Data, RawPacket.Offset, RawPacket.Length)
+					
+					OnSendComplete(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Connection)
+				Endif
+			#Elseif NETWORKING_SOCKET_BACKEND_WEBSOCKET
+				Local Position:= RawPacket.Position
 				
-				OnSendComplete(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Connection)
-			Endif
+				RawPacket.Seek(0)
+				
+				' Not exactly optimal, but it works for now.
+				Connection.send(RawPacket.ReadString())
+				
+				RawPacket.Seek(Position)
+			#End
 		Else
 			RawSendToAll(RawPacket, Async)
 		Endif
@@ -2082,20 +2164,22 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	
 	' This only works with UDP sockets.
 	Method RawSend:Void(Connection:Socket, RawPacket:Packet, Address:NetworkAddress, Async:Bool=True)
-		If (IsClient And (Address = Null Or AddressesEqual(Address, Remote.Address))) Then
-			RawSend(Connection, RawPacket, Async)
-		Else ' If (Not IsClient) Then
-			' Obtain a transit-reference.
-			RawPacket.Obtain()
-			
-			If (Async) Then
-				Connection.SendToAsync(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address, Self)
-			Else
-				Connection.SendTo(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address)
+			If (IsClient And (Address = Null Or AddressesEqual(Address, Remote.Address))) Then
+				RawSend(Connection, RawPacket, Async)
+		#If Not NETWORKING_SOCKET_BACKEND_WEBSOCKET
+			Else ' If (Not IsClient) Then
+				' Obtain a transit-reference.
+				RawPacket.Obtain()
 				
-				OnSendToComplete(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address, Connection)
+				If (Async) Then
+					Connection.SendToAsync(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address, Self)
+				Else
+					Connection.SendTo(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address)
+					
+					OnSendToComplete(RawPacket.Data, RawPacket.Offset, RawPacket.Length, Address, Connection)
+				Endif
+		#End
 			Endif
-		Endif
 		
 		Return
 	End
@@ -2448,7 +2532,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			' Local variable(s):
 			Local InitPosition:= P.Position
 			
-			'DebugStop()
+			DebugStop()
 			
 			Try
 				' Read the first bit of the message:
@@ -2527,7 +2611,14 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 						OutputPacket.WriteLine("Sec-WebSocket-Location: ws://" + HTTPContent.Get("host") + "/")
 						OutputPacket.WriteLine("Sec-WebSocket-Accept: " + Accept)
 						'OutputPacket.WriteLine("Sec-WebSocket-Version: 3, 13")
-						'OutputPacket.WriteLine("Sec-WebSocket-Protocol: chat")
+						
+						Local Protocol:= HTTPContent.Get("sec-websocket-protocol")
+						
+						If (Protocol.Length > 0) Then
+							OutputPacket.WriteLine("Sec-WebSocket-Protocol: " + Protocol)
+						Endif
+						
+						' Finish the message.
 						OutputPacket.WriteString("~r~n")
 						
 						RawSend(Source, OutputPacket, False)
@@ -2579,7 +2670,11 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 					#End
 					Endif
 				Else
-					Print(P.ReadLine())
+					P.Seek(0)
+					
+					While (Not P.Eof)
+						Print(P.ReadByte())
+					Wend
 					
 					DebugStop()
 				Endif
@@ -2588,6 +2683,8 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			End Try
 			
 			P.Seek(InitPosition)
+			
+			Return True
 			
 			' Return the default response. (Failure)
 			Return False
@@ -2610,7 +2707,11 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 			Return False
 		Endif
 		
-		Return Connection.IsBound
+		#If NETWORKING_SOCKET_BACKEND_WEBSOCKET
+			Return (Connection.OPEN > 0)
+		#Else ' NETWORKING_SOCKET_BACKEND_BRL
+			Return (Connection.IsBound)
+		#End
 	End
 	
 	' While binding, this may not provide accurate results.
@@ -2620,7 +2721,7 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	
 	' A 'NetworkEngine' is only open when its socket has been bound.
 	Method Open:Bool() Property
-		Return (Not Closed And Connection.IsBound)
+		Return Bound
 	End
 	
 	Method Terminating:Bool() Property
@@ -2840,6 +2941,10 @@ Class NetworkEngine Extends NetworkSerial Implements IOnBindComplete, IOnAcceptC
 	
 	' This represents the underlying protocol of this network.
 	Field _SocketType:ProtocolType = SOCKET_TYPE_UDP
+	
+	#If NETWORKING_SOCKET_BACKEND_WEBSOCKET
+		Field __TempAddress:NetworkAddress
+	#End
 	
 	Public
 	

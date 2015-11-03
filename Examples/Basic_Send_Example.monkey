@@ -10,8 +10,8 @@ Public
 ' If enabled, this could cause timeouts.
 #MOJO_AUTO_SUSPEND_ENABLED = False
 
-'#NETWORK_ENGINE_EXPERIMENTAL = True
-'#HASH_EXPERIMENTAL = True
+#NETWORK_ENGINE_EXPERIMENTAL = True
+#HASH_EXPERIMENTAL = True
 
 ' Imports:
 Import regal.networking
@@ -253,13 +253,13 @@ Class TestApplication Extends App Implements CoreNetworkListener, MetaNetworkLis
 		Return
 	End
 	
-	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:SocketAddress, BytesSent:Int)
+	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:NetworkAddress, BytesSent:Int)
 		'Print("Sending operation complete.")
 		
 		Return
 	End
 	
-	Method OnClientConnect:Bool(Network:NetworkEngine, Address:SocketAddress)
+	Method OnClientConnect:Bool(Network:NetworkEngine, Address:NetworkAddress)
 		#Rem
 			'Local Host:= Address.Host
 			

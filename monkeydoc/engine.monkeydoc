@@ -10,8 +10,11 @@
 # Import regal.eternity
 
 # Import monkey.list
-# Import brl.socket
+
 # Import brl.asyncevent
+# Import brl.socket
+
+# Import dom.websocket
 
 <p>
 This acts as the main implementation-module, import [[networking]] (Ideally) or this. For details, view the [[NetworkEngine]] class's documentation. This API reserves the right to ignore "Async" settings if necessary. In addition, argument defaults described by this documentation may not reflect the actual code, but will be present regardless of their real values. In other words, optional argument values may be different from this document.
@@ -788,12 +791,14 @@ allocate a [[Packet]] object automatically, and handle its deconstruction/storag
 </p>
 
 <p><i>Assume @Force as an unsafe argument; used internally.</i></p>
+<p>This routine does not work with [[WebSocket|WebSockets]].</p>
 <p><b>This method is protected.</b></p>
 
 # Method LaunchAsyncReceive:Void(S:Socket, P:Packet)
 
 <p>This performs a raw receive operation using @S. Where @S is [[RawConnect|"connected"]] to another end exclusively.</p>
 <p><b>This is a specialized version of [[AutoLaunchReceive]], please use that instead.</b></p>
+<p>This routine does not work with [[WebSocket|WebSockets]].</p>
 <p><b>This method is protected.</b></p>
 
 See also: [[AutoLaunchReceive]], [[LaunchAsyncReceiveFrom]]
@@ -802,8 +807,9 @@ See also: [[AutoLaunchReceive]], [[LaunchAsyncReceiveFrom]]
 
 <p>Like [[AutoLaunchReceive]], this will initialize a raw receive operation.</p>
 <p>This one in particular is for UDP sockets, mainly, and is address-based, using @Address as an output object for whoever sends a message.</p>
-<p></p>
-
+<br>
+<p>This routine does not work with [[WebSocket|WebSockets]].</p>
+<br>
 <p><b>This is a specialized version of [[AutoLaunchReceive]], please use that instead.</b></p>
 <p><b>This method is protected.</b></p>
 
@@ -816,6 +822,7 @@ This will generate a new [[NetworkAddress]], then call the [[LaunchAsyncReceiveF
 For details, please view that overload's documentation.
 </p>
 
+<p>This routine does not work with [[WebSocket|WebSockets]].</p>
 <p><b>This method is protected.</b></p>
 
 See also: [[AutoLaunchReceive]], [[LaunchAsyncReceive]]

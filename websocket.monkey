@@ -9,12 +9,26 @@ Strict
 
 Public
 
+' Friends:
+Friend regal.networking.socket
+Friend regal.networking.engine
+Friend regal.networking.serial
+
 ' Imports (Public):
 Import brl.stream
+
+#If NETWORKING_SOCKET_BACKEND_WEBSOCKET
+	'Import dom
+	Import dom.websocket
+#End
 
 ' Imports (Private):
 Private
 
+' Internal:
+' Nothing so far.
+
+' External:
 Import regal.typetool
 Import regal.stringutil
 'Import regal.byteorder
@@ -24,6 +38,137 @@ Import regal.ioutil.stringstream
 Import regal.ioutil.publicdatastream
 
 Public
+
+' Classes:
+#If NETWORKING_SOCKET_BACKEND_WEBSOCKET
+	Class NetworkAddress ' Final
+		' Functions (Protected):
+		Protected
+		
+		' This computes an "address representation".
+		Function CalculateRep:String(Host:String, Port:Int)
+			Return "ws://" + Host + ":" + Port
+		End
+		
+		Public
+		
+		' Constructor(s) (Public):
+		Method New()
+			' Nothing so far.
+		End
+		
+		Method New(Host:String, Port:Int)
+			Set(Host, Port)
+		End
+		
+		Method New(Addr:NetworkAddress)
+			Set(Addr)
+		End
+		
+		Method New(Connection:WebSocket)
+			Set(Connection)
+		End
+		
+		' Constructor(s) (Protected):
+		Protected
+		
+		Method Set:Void(Host:String, Port:Int)
+			Set(Host, Port, CalculateRep(Host, Port))
+			
+			Return
+		End
+		
+		Method Set:Void(Host:String, Port:Int, Rep:String)
+			Self.Host = Host
+			Self.Port = Port
+			Self.Rep = Rep
+			
+			Return
+		End
+		
+		Method Set:Void(Addr:NetworkAddress)
+			Set(Addr.Host, Addr.Port, Addr.ToString())
+			
+			Return
+		End
+		
+		Method Set:Void(Connection:WebSocket)
+			ParseURL(Connection.URL) ' url
+			
+			Return
+		End
+		
+		' This takes a representative address,
+		' and applies its information to this object.
+		Method ParseURL:Void(Rep:String)
+			Local Protocol:= Rep.Find("://")
+			Local Separator:= Rep.Find(":", Protocol+1)
+			
+			Self.Port = 0
+			
+			If (Protocol <> -1) Then ' STRING_INVALID_LOCATION
+				Self.Host = Rep[(Protocol+3)..Separator]
+			Else
+				If (Separator <> -1) Then ' STRING_INVALID_LOCATION
+					Self.Host = Rep[..(Separator)]
+				Endif
+			Endif
+			
+			If (Separator <> -1) Then ' STRING_INVALID_LOCATION
+				Self.Port = Int(Rep[(Separator+1)..])
+			Endif
+			
+			If (Self.Port = 0) Then
+				Self.Port = 80
+			Endif
+			
+			Return
+		End
+		
+		Public
+		
+		' Properties (Public):
+		Method Host:String() Property
+			Return Self._Host
+		End
+		
+		Method Port:Int() Property
+			Return Self._Port
+		End
+		
+		Method ToString:String() Property
+			Return Rep
+		End
+		
+		' Properties (Private):
+		Private ' Protected
+		
+		' These properties do not update the internal representation, please use 'Set':
+		Method Host:Void(Value:String) Property
+			Self._Host = Value
+			
+			Return
+		End
+		
+		Method Port:Void(Value:Int) Property
+			Self._Port = Value
+			
+			Return
+		End
+		
+		Public
+		
+		' Fields (Protected):
+		Protected
+		
+		Field _Host:String
+		Field _Port:Int ' UShort
+		
+		Field Rep:String
+		
+		Public
+	End
+#End
 
 ' Functions:
 Function GetHandshake:String(Key1:String, Key2:String, Key3:String)
@@ -48,7 +193,7 @@ Function GetHandshake:String(Key1:String, Key2:String, Key3:String)
 	Return Output
 End
 
-' Not working; relies on BlitzMax's string-conversion; doesn't work here without MonkeyMax.
+' Not working; relies on BlitzMax's string-conversion; doesn't work here without MonkeyMax. (To be removed)
 Function ToRawBinary:String(Data:String, SS:StringStream, ResetSeek:Bool=True)
 	Local Origin:Int = 0
 	

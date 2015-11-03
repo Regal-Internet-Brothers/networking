@@ -244,13 +244,13 @@ Class Application Extends App Implements NetworkListener Final
 		Return
 	End
 	
-	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:SocketAddress, BytesSent:Int)
+	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:NetworkAddress, BytesSent:Int)
 		' Nothing so far.
 		
 		Return
 	End
 	
-	Method OnClientConnect:Bool(Network:NetworkEngine, Address:SocketAddress)
+	Method OnClientConnect:Bool(Network:NetworkEngine, Address:NetworkAddress)
 		' Return the default response.
 		Return True
 	End

@@ -9,8 +9,9 @@ Public
 
 ' Preprocessor related:
 '#CURSOR_DEMO_REFLECTION_TEST = True
-
 #CURSOR_DEMO_CRAZY_MODE = False ' True
+
+'#NETWORK_ENGINE_EXPERIMENTAL = True ' False
 
 ' If enabled, this could cause timeouts.
 #MOJO_AUTO_SUSPEND_ENABLED = False
@@ -22,7 +23,7 @@ Public
 #GLFW_WINDOW_RESIZABLE = True
 
 #If CURSOR_DEMO_REFLECTION_TEST
-	#REFLECTION_FILTER = "networking"
+	#REFLECTION_FILTER = "regal.networking.*"
 #End
 
 ' Imports:
@@ -142,8 +143,8 @@ Class Game Extends App Implements CoreNetworkListener, MetaNetworkListener, Clie
 		
 		Select State
 			Case STATE_WAITING
-				DrawText("Press F1 or click/tap to host.", 16.0, 16.0)
-				DrawText("Press F2 to connect locally.", 16.0, 32.0)
+				DrawText("Press F1 to host.", 16.0, 16.0)
+				DrawText("Press F2 or click/tap to connect locally.", 16.0, 32.0)
 			Case STATE_GAMEPLAY
 				For Local P:= Eachin Players
 					P.Render()
@@ -155,7 +156,7 @@ Class Game Extends App Implements CoreNetworkListener, MetaNetworkListener, Clie
 	End
 	
 	Method WhileWaiting:Bool()
-		If (KeyHit(KEY_F1) Or MouseHit(MOUSE_LEFT)) Then
+		If (KeyHit(KEY_F1)) Then
 			Host()
 			
 			LocalCursor = New LocalPlayer()
@@ -168,7 +169,7 @@ Class Game Extends App Implements CoreNetworkListener, MetaNetworkListener, Clie
 			Return True
 		Endif
 		
-		If (KeyHit(KEY_F2)) Then
+		If (KeyHit(KEY_F2) Or MouseHit(MOUSE_LEFT)) Then
 			Connect("127.0.0.1")
 			
 			' Switch to gameplay.
@@ -474,13 +475,13 @@ Class Game Extends App Implements CoreNetworkListener, MetaNetworkListener, Clie
 		Return
 	End
 	
-	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:SocketAddress, BytesSent:Int)
+	Method OnSendComplete:Void(Network:NetworkEngine, P:Packet, Address:NetworkAddress, BytesSent:Int)
 		'Print("Sending operation complete.")
 		
 		Return
 	End
 	
-	Method OnClientConnect:Bool(Network:NetworkEngine, Address:SocketAddress)
+	Method OnClientConnect:Bool(Network:NetworkEngine, Address:NetworkAddress)
 		' Return the default response. (Accept the new connection)
 		Return True
 	End

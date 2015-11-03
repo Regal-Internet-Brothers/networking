@@ -43,7 +43,11 @@ Class Client
 	End
 	
 	Method Construct:Client(Connection:Socket, PacketConfirmation:Bool=False)
-		Return Construct(Connection.RemoteAddress, Connection, PacketConfirmation)
+		#If NETWORKING_SOCKET_BACKEND_WEBSOCKET
+			Return Construct(New NetworkAddress(Connection), Connection, PacketConfirmation)
+		#Else ' NETWORKING_SOCKET_BACKEND_BRL
+			Return Construct(Connection.RemoteAddress, Connection, PacketConfirmation)
+		#End
 	End
 	
 	' Constructor(s) (Protected):
@@ -82,9 +86,15 @@ Class Client
 		Address = Null
 		
 		If (Connection <> Null) Then
-			If (Connection.IsOpen) Then
-				Connection.Close()
-			Endif
+			#If NETWORKING_SOCKET_BACKEND_BRL
+				If (Connection.IsOpen) Then
+					Connection.Close()
+				Endif
+			#Elseif NETWORKING_SOCKET_BACKEND_WEBSOCKET
+				If (Connection.OPEN) Then
+					Connection.close()
+				Endif
+			#End
 			
 			Connection = Null
 		Endif

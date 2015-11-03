@@ -2,6 +2,9 @@ Strict
 
 Public
 
+' Friends:
+Friend regal.networking.engine
+
 ' Imports (Public):
 Import packet
 
@@ -13,6 +16,7 @@ Import brl.stream
 Private
 
 Import megapacket
+Import socket
 
 Public
 
@@ -28,7 +32,11 @@ Alias PacketExtAction = Int ' MessageType
 
 ' This is an internal base-class for 'NetworkEngines',
 ' which provides general purpose I/O routines.
+#If Not NETWORKING_SOCKET_BACKEND_WEBSOCKET
 Class NetworkSerial Abstract
+#Else
+Class NetworkSerial Extends EventListener Abstract
+#End
 	' Constant variable(s):
 	
 	' Message types:
@@ -209,6 +217,10 @@ Class NetworkSerial Abstract
 		
 		Return
 	End
+	
+	#If NETWORKING_SOCKET_BACKEND_WEBSOCKET
+		Method handleEvent:Int(E:Event) Abstract ' Void
+	#End
 	
 	Public
 End
