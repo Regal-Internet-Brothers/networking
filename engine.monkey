@@ -2,6 +2,11 @@ Strict
 
 Public
 
+#Rem
+	WEB SOCKET NOTES:
+		* You must use fixed byte order. (To my knowledge)
+#End
+
 ' Preprocessor related:
 #NETWORK_ENGINE_FAIL_ON_TOO_MANY_CHUNKS = True
 '#NETWORK_ENGINE_EXPERIMENTAL = True
@@ -1144,7 +1149,7 @@ Class NetworkEngine Extends NetworkSerial
 				Return False
 			Endif
 			
-			Self.Connection = createWebSocket(New NetworkAddress(Host, Port)) ' ToString()
+			Self.Connection = createWebSocket(New NetworkAddress(Host, Port)) ' ToString() ' "binary"
 			
 			Self.Connection.addEventListener("open", Self)
 			Self.Connection.addEventListener("close", Self)
@@ -2670,11 +2675,92 @@ Class NetworkEngine Extends NetworkSerial
 					#End
 					Endif
 				Else
+					' Move back to the beginning of the message.
 					P.Seek(0)
+					
+					' WEBSOCKET FRAME FORMAT:
+					
+					' Context byte:
+					
+					' Read the operation's direction-byte.
+					Local ConByte:Int = P.ReadByte() ' & 255
+					
+					' Check if this is the final message-piece.
+					Local IsFinal:Bool = ((ConByte & 1) > 0)
+					
+					' Check if this is a masked portion.
+					Local MaskAvail:Bool = ((ConByte & 255) > 0)
+					
+					' Get the op-code; skips the reserved bits (3) and previous flag (1).
+					Local OpCode:= ((ConByte Shl 4) & 15)
+					
+					' Output the op-code for debugging purposes.
+					Print("OP-CODE: " + OpCode)
+					
+					' Output this byte for debugging purposes.
+					Print("ConByte: " + Bin(ConByte))
+					
+					' Length byte:
+					
+					' Read the initial length-byte.
+					Local LenByte:Int = P.ReadByte()
+					
+					' Check if we're dealing with a large message.
+					Local HasSecondLength:Bool = ((LenByte & 1) > 0)
+					
+					Local Len:Int = (LenByte & 127) ' Long
+					
+					If (HasSecondLength) Then
+						Select Len
+							Case 126
+								Len = P.ReadShort() ' +=
+							Case 127
+								Len = P.ReadInt() ' +=
+								
+								' Since we're 32-bit only for now, skip the extra 32 bits.
+								P.ReadInt()
+						End Select
+					Endif
+					
+					' Mask:
+					DebugStop()
+					
+					Local Mask:Int[4] ' New Int[4] ' Int
+					
+					If (MaskAvail) Then
+						'Mask = P.ReadInt()
+						
+						For Local I:= 0 Until 4 ' Mask.Length
+							Mask[I] = (P.ReadByte() & 255)
+						Next
+					Endif
+					
+					Local Str:= P.ReadString(Len, "ascii")
+					Local Out:= New Int[Str.Length]
+					
+					For Local I:= 0 Until Len
+						Out[I] = ((Str[I] ~ Mask[(I Mod 4)]) & 255)
+					Next
+					
+					DebugStop()
+					
+					Print("~q" + String.FromChars(Out) + "~q")
+					
+					DebugStop()
+					
+					P.Seek(0)
+					
+					'#Rem
+					Print("Bytes:")
 					
 					While (Not P.Eof)
 						Print(P.ReadByte())
 					Wend
+					'#End
+					
+					P.Seek(0)
+					
+					Print("~q" + P.ReadString("utf8") + "~q")
 					
 					DebugStop()
 				Endif

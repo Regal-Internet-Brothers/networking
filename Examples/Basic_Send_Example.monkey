@@ -11,7 +11,6 @@ Public
 #MOJO_AUTO_SUSPEND_ENABLED = False
 
 #NETWORK_ENGINE_EXPERIMENTAL = True
-#HASH_EXPERIMENTAL = True
 
 ' Imports:
 Import regal.networking
