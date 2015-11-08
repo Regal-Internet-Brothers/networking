@@ -39,6 +39,17 @@ Import regal.ioutil.publicdatastream
 
 Public
 
+' Constant variable(s):
+
+' WebSocket op-codes:
+Const WEBSOCKET_OPCODE_CHUNK:= $0
+Const WEBSOCKET_OPCODE_TEXT_FRAME:= $1
+Const WEBSOCKET_OPCODE_BINARY_FRAME:= $2
+
+Const WEBSOCKET_OPCODE_CLOSE:= $8
+Const WEBSOCKET_OPCODE_PING:= $9
+Const WEBSOCKET_OPCODE_PONG:= $A
+
 ' Classes:
 #If NETWORKING_SOCKET_BACKEND_WEBSOCKET
 	Class NetworkAddress ' Final

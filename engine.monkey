@@ -50,7 +50,7 @@ Import megapacketpool
 	Import regal.hash
 	Import regal.byteorder
 	
-	Import regal.ioutil.stringstream
+	Import regal.ioutil ' regal.ioutil.stringstream
 #End
 
 Public
@@ -1926,6 +1926,10 @@ Class NetworkEngine Extends NetworkSerial
 							Endif
 					End Select
 				Default
+					If (C = Null) Then
+						Return MSG_TYPE_ERROR
+					Endif
+					
 					Local ExtendedPacket:= ReadBool(P)
 					Local DataSize:= ReadNetSize(P)
 					
@@ -2579,13 +2583,7 @@ Class NetworkEngine Extends NetworkSerial
 						Input.WriteString(Accept)
 						Input.Seek(0)
 						
-						Print(Accept)
-						
 						Local RawSHA:= RAW_SHA1(Input, Input.Length)
-						
-						For Local I:= 0 Until 5
-							Print(HexBE(RawSHA[I]))
-						Next
 						
 						Input.Reset()
 						
@@ -2691,10 +2689,10 @@ Class NetworkEngine Extends NetworkSerial
 					Local IsFinal:Bool = ((ConByte & 1) > 0)
 					
 					' Check if this is a masked portion.
-					Local MaskAvail:Bool = ((ConByte & 255) > 0)
+					Local MaskAvail:Bool = ((ConByte & $FF) > 0)
 					
 					' Get the op-code; skips the reserved bits (3) and previous flag (1).
-					Local OpCode:= ((ConByte Shl 4) & 15)
+					Local OpCode:= ((ConByte Shl 4) & $F) ' 15
 					
 					' Output the op-code for debugging purposes.
 					Print("OP-CODE: " + OpCode)
@@ -2710,13 +2708,13 @@ Class NetworkEngine Extends NetworkSerial
 					' Check if we're dealing with a large message.
 					Local HasSecondLength:Bool = ((LenByte & 1) > 0)
 					
-					Local Len:Int = (LenByte & 127) ' Long
+					Local Len:Int = (LenByte & $7F) ' 127 ' Long
 					
 					If (HasSecondLength) Then
 						Select Len
-							Case 126
+							Case $7E ' 126
 								Len = P.ReadShort() ' +=
-							Case 127
+							Case $7F ' 127
 								Len = P.ReadInt() ' +=
 								
 								' Since we're 32-bit only for now, skip the extra 32 bits.
@@ -2725,47 +2723,21 @@ Class NetworkEngine Extends NetworkSerial
 					Endif
 					
 					' Mask:
-					DebugStop()
-					
 					If (MaskAvail) Then
 						Local Mask:= P.ReadInt()
 						
-						Local DataPos:= P.Position
-						
-						For Local I:= 1 To Len Step 4 ' SizeOf_Integer
-							Local Session:= P.Position
-							
-							Try
-								Local Data:= P.ReadInt()
-								
-								P.Seek(Session)
-								
-								P.WriteInt(Data ~ Mask)
-							Catch A:StreamReadError
-								Local BytesLeft:= (P.Length - Session)
-								
-								Print("Bytes left: " + BytesLeft)
-								
-								DebugStop()
-							End Try
-						Next
-						
-						P.Seek(DataPos)
+						MaskStream(P, Mask, Len)
 					Endif
 					
-					DebugStop()
-					
-					Print("~q" + P.ReadString(Len, "ascii") + "~q")
-					
-					DebugStop()
+					#Rem
+						Select OpCode
+							Case WEBSOCKET_OPCODE_CHUNK
+						End Select
+					#End
 				Endif
 			Catch E:StreamError
 				' Nothing so far.
 			End Try
-			
-			P.Seek(InitPosition)
-			
-			Return True
 			
 			' Return the default response. (Failure)
 			Return False
