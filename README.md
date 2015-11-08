@@ -40,3 +40,4 @@ This module uses the ['brl.socket'](https://github.com/blitz-research/monkey/blo
 
 ### References:
 * Experimental WebSocket support based on [FWeinb](https://github.com/FWeinb)'s '[websocket.mod](https://github.com/FWeinb/websocket.mod)' (BlitzMax implementation).
+* [WebSocket RFC 6455](https://tools.ietf.org/html/rfc6455).
