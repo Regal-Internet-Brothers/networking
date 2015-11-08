@@ -1594,8 +1594,8 @@ Class NetworkEngine Extends NetworkSerial
 				C = GetClient(Address)
 				
 				#If NETWORK_ENGINE_EXPERIMENTAL
-					If (C = Null And AllowWebSockets) Then
-						If (WebSocketHook(P, Address, Source)) Then
+					If (AllowWebSockets) Then
+						If (WebSocketHook(P, Address, Source, C)) Then
 							Return MSG_TYPE_INTERNAL
 						Endif
 					Endif
@@ -2524,7 +2524,7 @@ Class NetworkEngine Extends NetworkSerial
 		' Experimental WebSocket handshake hook.
 		' This handles the handshake a "web socket" performs initially.
 		' This handles exceptions, and returns 'True' if the message was read as a handshake.
-		Method WebSocketHook:Bool(P:Stream, Address:NetworkAddress, Source:Socket)
+		Method WebSocketHook:Bool(P:Packet, Address:NetworkAddress, Source:Socket, C:Client=Null)
 			' Constant variable(s):
 			Const WEB_SOCKET_GUID:String = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 			
@@ -2537,18 +2537,20 @@ Class NetworkEngine Extends NetworkSerial
 			' Local variable(s):
 			Local InitPosition:= P.Position
 			
-			DebugStop()
-			
 			Try
-				' Read the first bit of the message:
-				Local TestStr:= P.ReadString(SAMPLE_SIZE)
+				Local SampleStr:String
 				
-				'Print(P.ReadString())
+				If (C = Null) Then
+					' Read the first bit of the message:
+					SampleStr = P.ReadString(SAMPLE_SIZE)
+					
+					'Print(P.ReadString())
+					
+					' Seek back, no matter the outcome
+					P.Seek(InitPosition)
+				Endif
 				
-				' Seek back, no matter the outcome
-				P.Seek(InitPosition)
-				
-				If (TestStr = SAMPLE_STR) Then
+				If (C = Null And SampleStr = SAMPLE_STR) Then
 					' TODO: Pool HTTP-header maps.
 					Local HTTPContent:= New StringMap<String>()
 					
@@ -2676,7 +2678,7 @@ Class NetworkEngine Extends NetworkSerial
 					Endif
 				Else
 					' Move back to the beginning of the message.
-					P.Seek(0)
+					P.Seek(InitPosition)
 					
 					' WEBSOCKET FRAME FORMAT:
 					
@@ -2725,42 +2727,35 @@ Class NetworkEngine Extends NetworkSerial
 					' Mask:
 					DebugStop()
 					
-					Local Mask:Int[4] ' New Int[4] ' Int
-					
 					If (MaskAvail) Then
-						'Mask = P.ReadInt()
+						Local Mask:= P.ReadInt()
 						
-						For Local I:= 0 Until 4 ' Mask.Length
-							Mask[I] = (P.ReadByte() & 255)
+						Local DataPos:= P.Position
+						
+						For Local I:= 1 To Len Step 4 ' SizeOf_Integer
+							Local Session:= P.Position
+							
+							Try
+								Local Data:= P.ReadInt()
+								
+								P.Seek(Session)
+								
+								P.WriteInt(Data ~ Mask)
+							Catch A:StreamReadError
+								Local BytesLeft:= (P.Length - Session)
+								
+								Print("Bytes left: " + BytesLeft)
+								
+								DebugStop()
+							End Try
 						Next
+						
+						P.Seek(DataPos)
 					Endif
 					
-					Local Str:= P.ReadString(Len, "ascii")
-					Local Out:= New Int[Str.Length]
-					
-					For Local I:= 0 Until Len
-						Out[I] = ((Str[I] ~ Mask[(I Mod 4)]) & 255)
-					Next
-					
 					DebugStop()
 					
-					Print("~q" + String.FromChars(Out) + "~q")
-					
-					DebugStop()
-					
-					P.Seek(0)
-					
-					'#Rem
-					Print("Bytes:")
-					
-					While (Not P.Eof)
-						Print(P.ReadByte())
-					Wend
-					'#End
-					
-					P.Seek(0)
-					
-					Print("~q" + P.ReadString("utf8") + "~q")
+					Print("~q" + P.ReadString(Len, "ascii") + "~q")
 					
 					DebugStop()
 				Endif
