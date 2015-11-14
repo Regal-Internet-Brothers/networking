@@ -35,6 +35,7 @@ Functionality provided in this repository was *(Until recently)* very experiment
 This module uses the ['brl.socket'](https://github.com/blitz-research/monkey/blob/develop/modules/brl/socket.monkey) module as a backend. Portability currently depends on this module.
 
 ### TODO:
+* Fully integrate WebSocket support. (Work in progress; highly experimental)
 * Optimize UDP reliable-packet output. (Asynchronous bottleneck)
 * Implement packet routing for client-to-client communications. (Potential security problems)
 
