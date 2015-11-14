@@ -87,7 +87,7 @@ See also:
 
 # Method RemoveWaitingMegaPacket:Void(MP:MegaPacket)
 
-<p>This is used to remote @MP from an internal container of "waiting" (Client-created) [[MegaPacket|MegaPackets]].</p>
+<p>This is used to remove @MP from an internal container of "waiting" (Client-created) [[MegaPacket|MegaPackets]].</p>
 <p>This method is protected, but is documented for extension purposes.</p>
 
 See also: [[AddWaitingMegaPacket]], [[NetworkEngine.AllocateRemoteMegaPacket]]
