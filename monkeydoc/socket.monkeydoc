@@ -29,9 +29,64 @@ This means the type, no matter the origin, will be supported. Once again, exact 
 # Class NetworkAddress
 
 <p>
-This API describes an address as a cohesive component, delegating a discrete set of portable features. The best parallel to this currently is the [[SocketAddress]] type. This type should never be <i>assumed</i> to be compatible with that type, nor should you use that type with this module's API.
+This API describes an address as a cohesive component, delegating a discrete set of portable features. The best parallel to this currently is the [[SocketAddress]] type. This type should never be <i>assumed</i> to be compatible with that type, nor should you use that type with [[regal.networking|this module]]'s API.
 </p>
+
+
+# Method New()
+
+<p>This is used internally to create an "empty address".</p>
+
+# Method New(Host:String, Port:Int)
+
+<p>This creates an address representative using @Host and @Port.</p>
+<p>This object may store @Host, or any native representation of it.</p>
+<p>However, the output from the [[Host]] property must be the same as this argument.</p>
+<p>The @Host argument may contain platform-specific symbols if necessary.</p>
+<p>These limits do not apply to @Port, which will retain its numeric value [[Port|internally]]. (Encoding aside)</p>
+
+# Method New(Addr:NetworkAddress)
+
+<p>This creates an exact replica of @Addr with separate storage semantics.</p>
+<p>The [[Host]] and [[Port]] properties will behave the same.</p>
+
+
+# Method Host:String() Property
+
+<p>This returns the original hostname provided when this object was created.</p>
+<p>Following standard construction rules, this does not represent its resolved form.</p>
+
+# Method Port:Int() Property
+
+<p>This represents the original port provided when this object was created.</p>
+<p>Following standard construction rules, this must represent the original numeric value provided.</p>
+
+# Method ToString:String() Property
+
+<p>This provides a string representation of this address.</p>
+<p>This will be an implementation-specific hostname, a protocol/implementation dependent separator, and a system-native representation of a port.</p>
+<p>Behavior is not guaranteed to be consistent. Consequently, beware of implicit string-conversion.</p>
+<p>This type reserves the right to pre-compute the result of this property.</p>
+
 
 # Class Socket
 
-<p>Documentation pending...</p>
+<p>Objects of this type act as symbolic handles to "native" socket objects.</p>
+<p>The exact type this represents depends on the target. Regardless of their original titles, these types may be represented under the name "Socket".</p>
+<p>
+This framework reserves the right to represent underlying socket technologies through other supporting types.
+In other words, the "native socket" type used may directly correspond to the type "Socket" represents.
+</p>
+<p>To resolve a "Socket" to its native form (Ideal for extension), call [[GetNativeSocket]].</p>
+
+
+# Function GetNativeSocket:Object(S:Socket)
+
+<p>This takes @S, and retrieves a platform-dependent socket object.</p>
+<p>This object may or may not be the same as @S. For details, please read the [[Socket|documentation for Socket]].</p>
+<p>Despite the described prototype, this does not only return an [[Object]] handle.</p>
+
+# Function GetNativeSocket:Object(E:NetworkEngine)
+
+<p>This takes the internal [[NetworkEngine.Socket]] object from @E, and calls the [[GetNativeSocket|main overload]] of this command.</p>
+<p>Despite the described prototype, this does not only return an [[Object]] handle.</p>

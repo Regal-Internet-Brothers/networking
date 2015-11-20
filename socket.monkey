@@ -11,7 +11,7 @@ Public
 	#End
 #End
 
-' Imports:
+' Imports (Public):
 
 ' Internal:
 #If NETWORKING_SOCKET_BACKEND_WEBSOCKET
@@ -25,6 +25,14 @@ Public
 
 Import brl.asyncevent
 
+' Imports (Private):
+Private
+
+' Internal:
+Import engine
+
+Public
+
 ' Aliases:
 #If NETWORKING_SOCKET_BACKEND_WEBSOCKET
 	Alias Socket = WebSocket
@@ -32,3 +40,12 @@ Import brl.asyncevent
 	' This will eventually replace 'SocketAddress' for the sake of abstraction.
 	Alias NetworkAddress = SocketAddress
 #End
+
+' Functions:
+Function GetNativeSocket:Socket(S:Socket)
+	Return S
+End
+
+Function GetNativeSocket:Socket(E:NetworkEngine)
+	Return GetNativeSocket(E.Socket)
+End
