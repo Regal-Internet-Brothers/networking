@@ -91,7 +91,7 @@ See also:
 
 Reliable packets hold raw packet data, which is sent using [[Resend]] to a [[Client]] via [[Destination]]. These are used internally by [[NetworkEngine]] objects, where management of [[Destination]] is done. It is not recommended to create instances of this class, unless you intend to right your own reliable/raw packet system. This class may not be extended.
 
-This is documented for the sake of understanding and/or extending the framework.
+This is documented for the sake of understanding and/or extending the framework as a whole.
 
 # Method New(Size:Int, FixByteOrder:Bool=Default_BigEndianStorage, AutoClose:Bool=True)
 

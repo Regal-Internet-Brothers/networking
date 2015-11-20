@@ -1149,7 +1149,7 @@ Class NetworkEngine Extends NetworkSerial
 				Return False
 			Endif
 			
-			Self.Connection = createWebSocket(New NetworkAddress(Host, Port)) ' ToString() ' "binary"
+			Self.Connection = createWebSocket(New NetworkAddress(Host, Port), "binary") ' ToString() ' "text"
 			
 			Self.Connection.addEventListener("open", Self)
 			Self.Connection.addEventListener("close", Self)
@@ -2144,6 +2144,12 @@ Class NetworkEngine Extends NetworkSerial
 				Connection.send(RawPacket.ReadString())
 				
 				RawPacket.Seek(Position)
+				
+				If (Connection = Null) Then
+					'Print("dsklfjdsklfjdskljkldjfklj")
+				Endif
+				
+				'webSendRaw(Connection, RawPacket.Data)
 			#End
 		Else
 			RawSendToAll(RawPacket, Async)
@@ -2955,10 +2961,6 @@ Class NetworkEngine Extends NetworkSerial
 	' This may be used to toggle accepting multiple clients.
 	Field _MultiConnection:Bool = Default_MultiConnection
 	
-	' A pool of 'ReliablePackets', used for reliable packet management.
-	' This is only available when using UDP as the underlying protocol.
-	Field ReliablePacketGenerator:ReliablePacketPool
-	
 	' A container of packets allocated to the internal system.
 	Field SystemPackets:Stack<Packet>
 	
@@ -3008,7 +3010,12 @@ Class NetworkEngine Extends NetworkSerial
 	' private because it has an appropriate API layer.
 	Field PacketGenerator:BasicPacketPool
 	
+	' A pool of 'ReliablePackets', used for reliable packet management.
+	' This is only available when using UDP as the underlying protocol.
+	Field ReliablePacketGenerator:ReliablePacketPool
+	
 	' A pool of 'MegaPackets'; used for multi-part packets.
+	' Like 'PacketGenerator', this is private because it has an appropriate API layer.
 	Field MegaPacketGenerator:MegaPacketPool
 	
 	Public

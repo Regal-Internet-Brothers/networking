@@ -4,9 +4,10 @@
 # Import regal.networking.engine
 # Import regal.networking.packet
 # Import regal.networking.client
+# Import regal.networking.socket
 
 <p>
-The 'regal.networking' module provides a data-oriented network I/O framework atop the internet transport layer, supporting both TCP and UDP.
+This module provides a data-oriented network I/O framework atop the internet transport layer, supporting both TCP and UDP.
 </p>
 
 <p>

@@ -6,20 +6,15 @@
 # Import regal.networking.megapacket
 # Import regal.networking.packetpool
 # Import regal.networking.megapacketpool
+# Import regal.networking.socket
 
 # Import regal.eternity
 
 # Import monkey.list
 
-# Import brl.asyncevent
-# Import brl.socket
-
-# Import dom.websocket
-
 <p>
-This acts as the main implementation-module, import [[networking]] (Ideally) or this. For details, view the [[NetworkEngine]] class's documentation. This API reserves the right to ignore "Async" settings if necessary. In addition, argument defaults described by this documentation may not reflect the actual code, but will be present regardless of their real values. In other words, optional argument values may be different from this document.
+This acts as the main implementation-module, import [[regal.networking]] (Ideally) or this. For details, view the [[NetworkEngine]] class's documentation. This API reserves the right to ignore "Async" settings if necessary. In addition, argument defaults described by this documentation may not reflect the actual code, but will be present regardless of their real values. In other words, optional argument values may be different from this document.
 </p>
-<br>
 <p>
 As a side note, basically any routine taking a [[MegaPacket]] without a destination will use that [[MegaPacket]]'s [[MegaPacket.Destination]] property.
 </p>
@@ -133,7 +128,7 @@ A [[NetworkEngine]] acts as your connection or "node" in the network. At present
 
 <p>
 Though undocumented, most [[Socket|BRL Socket]] asynchronous callbacks are implemented, and can be extended when extending this framework.
-That being said, this framework reserves the right to resolve @'Socket' as any type it sees fit. The documentation currently only reflects the [[Socket|BRL implementation]].
+That being said, this framework reserves the right to resolve "Socket" as any type it sees fit. The documentation currently only reflects the [[Socket|BRL implementation]].
 </p>
 
 
@@ -1359,8 +1354,8 @@ See also: [[SendPing]]
 
 <p>
 This is used to delegate the [[Connection]] field.
-When writing code for inside the engine, do not use this property.
-Everywhere else (External systems), use this.
+When writing code to extend an engine, don't use this property.
+Everywhere else (External systems / public extension), use this.
 </p>
 
 See also: [[Connection]]
@@ -1456,11 +1451,11 @@ Basically, this dictates whether more than one (Client) connection is allowed.
 
 # Method BigEndian:Bool() Property
 
-<p>This is a proxy to [[PacketGenerator]]'s [[PacketPool.FixByteOrder]] property, which corresponds to the 'FixByteOrder' constructor argument.</p>
+<p>This is a proxy to an internal [[BasicPacketPool]] object's [[BasicPacketPool.FixByteOrder]] property. This corresponds to the 'FixByteOrder' constructor argument.</p>
 
 # Method PacketSize:Int() Property
 
-<p>This is a proxy to [[PacketGenerator]]'s [[PacketPool.PacketSize]] property, which corresponds to the constructor argument of the same name.</p>
+<p>This is a proxy to an internal [[BasicPacketPool]] object's [[BasicPacketPool.PacketSize]] property. This corresponds to the constructor argument of the same name.</p>
 
 # Method UDPSocket:Bool() Property
 
@@ -1512,13 +1507,6 @@ Chunk sizes depend on 'PacketSize' on the other end.
 # Field ClientMessagesAfterDisconnect:Bool = Default_ClientMessagesAfterDisconnect
 
 <p>This specifies if normal messages should be accepted after a client has been told to disconnect.</p>
-
-# Field ReliablePacketGenerator:ReliablePacketPool
-
-A pool of [[ReliablePacket|ReliablePackets]], used for reliable packet management.
-This is only available when using UDP (Or similar) as the underlying transport protocol.
-
-<p><b>This field is protected.</b></p>
 
 # Field SystemPackets:Stack<Packet>
 

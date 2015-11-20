@@ -3,9 +3,7 @@
 # Import regal.networking
 # Import regal.networking.packet
 # Import regal.networking.megapacket
-
-# Import brl.socket
-# Import brl.stream
+# Import regal.networking.socket
 
 # Class NetworkPing Extends Int
 # Class MessageType Extends Int

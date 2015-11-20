@@ -26,7 +26,9 @@ Import brl.stream
 Private
 
 ' Internal:
-' Nothing so far.
+#If NETWORKING_SOCKET_BACKEND_WEBSOCKET
+	Import "native/support.${LANG}" ' js
+#End
 
 ' External:
 Import regal.typetool
@@ -36,6 +38,8 @@ Import regal.hash
 
 Import regal.ioutil.stringstream
 Import regal.ioutil.publicdatastream
+
+Import brl.databuffer
 
 Public
 
@@ -181,7 +185,16 @@ Const WEBSOCKET_OPCODE_PONG:= $A
 	End
 #End
 
-' Functions:
+' Functions (Native):
+Extern
+
+#If NETWORKING_SOCKET_BACKEND_WEBSOCKET
+	Function webSendRaw:Void(S:WebSocket, Buf:DataBuffer)
+#End
+
+Public
+
+' Functions (Monkey):
 Function GetHandshake:String(Key1:String, Key2:String, Key3:String)
 	Local SS:= New StringStream(Max(Key1.Length + Key2.Length, 256), "ascii", True)
 	

@@ -1,0 +1,37 @@
+# Module regal.networking.socket
+
+# Import regal.networking.engine
+
+# Import brl.asyncevent
+# Import brl.socket
+
+# Import dom.websocket
+
+<p>
+This module is used internally to provide several lower-level components, namely, an underlying [[Socket]] implementation. The [[Socket]] type, as described throughout lower-level parts of the documentation, can be any type delegated here. This is symbolic, so it's meant as an unrelated handle. For details, read on.
+</p>
+<br>
+<p>
+This <b>does not</b> cover a cohesive API across backends, the main purpose of this module is to provide native behavior and "type-consistency" (Names, relations, etc).
+</p>
+<p>
+Types provided here are symbolic, and should only be used as this document describes. Not following these documents is considered "unsafe", and may result in undefined behavior under some environments. That's not to say there's anything wrong with using technology specific features, but they aren't covered by this ecosystem.
+</p>
+<p>
+The only exception being types that describe traits that will be the same across environments. For example, [[NetworkAddress]] explicitly describes an API usable across internal boundries, and maintains at least a subset of its provided features.
+</p>
+<p>
+<b>Please take note</b> that normal APIs expecting natively or "portably" (Symbolic) described objects are portable unless stated otherwise.
+For example, [[NetworkEngine.AddressesEqual]] is a portable component of the API.
+This means the type, no matter the origin, will be supported. Once again, exact rules and behaviors may need further description.
+</p>
+
+# Class NetworkAddress
+
+<p>
+This API describes an address as a cohesive component, delegating a discrete set of portable features. The best parallel to this currently is the [[SocketAddress]] type. This type should never be <i>assumed</i> to be compatible with that type, nor should you use that type with this module's API.
+</p>
+
+# Class Socket
+
+<p>Documentation pending...</p>

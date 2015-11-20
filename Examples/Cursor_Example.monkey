@@ -11,7 +11,7 @@ Public
 '#CURSOR_DEMO_REFLECTION_TEST = True
 #CURSOR_DEMO_CRAZY_MODE = False ' True
 
-'#NETWORK_ENGINE_EXPERIMENTAL = True ' False
+#NETWORK_ENGINE_EXPERIMENTAL = True ' False
 
 ' If enabled, this could cause timeouts.
 #MOJO_AUTO_SUSPEND_ENABLED = False
