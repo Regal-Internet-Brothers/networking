@@ -1,7 +1,7 @@
 # networking
 A data-oriented networking framework for the [Monkey programming language](https://github.com/blitz-research/monkey).
 
-**Documentation for this project [can be found here](http://regal-internet-brothers.github.io/networking).** *(Reasonably finished)*
+**Documentation for this project [can be found here](https://regal-internet-brothers.github.io/monkey/docs/Modules_regal.networking).** *(Reasonably finished)*
 
 This was built as an easy to use API that allows you to serialize and deserialize data using the internet transport layer (TCP & UDP). This framework handles the lower level side of networking; client management, packet semantics, etc. This allows you to focus on the I/O aspects of your game's networking, rather than the protocol behavior. Everything's done using standard 'Stream' objects, meaning any standard input or output routine could be used on a packet-stream.
 
