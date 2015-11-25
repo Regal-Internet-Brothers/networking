@@ -321,13 +321,13 @@ See also: [[Connect]], [[Close]], [[CloseAsync]]
 
 # Method Connect:Bool(Address:NetworkAddress, Async:Bool=False, Protocol:ProtocolType=SOCKET_TYPE_UDP)
 
-This is used to create a client network on @Port using @Protocol.
+This is used to create a client network using @Address with @Protocol.
 Once a connection has been established, please call [[Update]] regularly.
 When you intend to end the network-session, please call [[Close]] or [[CloseAsync]].
 
 * The @Address argument is used to connect to a remote [[NetworkEngine]].
 * The @Async argument specifies if connection should be done asynchronously. (May be required on some targets)
-* The @Protocol argument describes the desired transport protocol.
+* The @[[SocketType|Protocol]] argument describes the desired transport protocol.
 
 See also: [[Host]], [[Close]], [[CloseAsync]]
 
