@@ -4,7 +4,7 @@ Public
 
 ' Preprocessor related:
 #If TARGET = "stdcpp"
-	#USE_MOJOWRAPPER = True
+	#SEND_DEMO_USE_MOJOEMULATOR = True
 #End
 
 ' If enabled, this could cause timeouts.
@@ -18,7 +18,7 @@ Import regal.networking.megapacket
 
 'Import regal.stringutil
 
-#If Not USE_MOJOWRAPPER
+#If Not SEND_DEMO_USE_MOJOEMULATOR
 	Import mojo
 #Else
 	Import regal.mojoemulator
@@ -41,7 +41,7 @@ Class TestApplication Extends App Implements CoreNetworkListener, MetaNetworkLis
 	
 	' Constructor(s):
 	Method OnCreate:Int()
-		#If Not USE_MOJOWRAPPER
+		#If Not SEND_DEMO_USE_MOJOEMULATOR
 			SetUpdateRate(0) ' 60
 		#Else
 			SetUpdateRate(4)
@@ -59,7 +59,7 @@ Class TestApplication Extends App Implements CoreNetworkListener, MetaNetworkLis
 	
 	' Methods:
 	Method OnUpdate:Int()
-		#If Not USE_MOJOWRAPPER
+		#If Not SEND_DEMO_USE_MOJOEMULATOR
 			If (KeyHit(KEY_ESCAPE)) Then
 				OnClose()
 				
@@ -84,11 +84,11 @@ Class TestApplication Extends App Implements CoreNetworkListener, MetaNetworkLis
 			C.Update()
 			
 			If (C.Open And Server.Open) Then
-				#If Not USE_MOJOWRAPPER
+				#If Not SEND_DEMO_USE_MOJOEMULATOR
 					If (KeyHit(KEY_W)) Then
 				#End
 						SendToServer(C)
-				#If Not USE_MOJOWRAPPER
+				#If Not SEND_DEMO_USE_MOJOEMULATOR
 					Elseif (KeyDown(KEY_E)) Then
 						SendToServer(C, QuickSend_Reliable, False) ' True
 					Endif
@@ -117,7 +117,7 @@ Class TestApplication Extends App Implements CoreNetworkListener, MetaNetworkLis
 			Endif
 		Next
 		
-		#If Not USE_MOJOWRAPPER
+		#If Not SEND_DEMO_USE_MOJOEMULATOR
 			If (KeyHit(KEY_Q)) Then
 				'Server.Close()
 				

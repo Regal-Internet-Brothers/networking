@@ -16,7 +16,7 @@ This protocol supports features like client management, reliable messaging (UDP)
 </p>
 
 <p>
-To use this module in your applications, simply import 'regal.networking' at the top of your program. Examples can be found in the main source directory.
+To use this module in your applications, simply import 'regal.networking' at the top of your programs. Examples can be found in the main source directory.
 </p>
 
 Documentation notes:

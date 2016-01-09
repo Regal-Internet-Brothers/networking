@@ -1436,6 +1436,7 @@ Basically, this dictates whether more than one (Client) connection is allowed.
 # Method HasClient:Bool() Property
 
 <p>This indicates if there is at least one [[Client]] in this network that is <i><b>not</b></i> [[Client.Closing|closing/disconnecting]].</p>
+<p>This always reports [[True]] for clients, as [[Remote]] will report a [[Client]] representing the remote host.</p>
 
 # Method HasDisconnectingClient:Bool() Property
 
@@ -1468,11 +1469,9 @@ Basically, this dictates whether more than one (Client) connection is allowed.
 # Method Remote:Client() Property
 
 <p>
-This represents the remote host-node for clients.
+This represents the remote 'host-node' for clients.
 For hosts, this always reports [[Null]].
 </p>
-
-<p><b>This property is protected.</b></p>
 
 
 # Field PacketReleaseTime:Duration

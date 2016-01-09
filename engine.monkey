@@ -164,6 +164,7 @@ Class NetworkEngine Extends NetworkSerial
 	' Booleans / Flags:
 	Const Default_FixByteOrder:Bool = True
 	Const Default_MultiConnection:Bool = True
+	Const Default_AllowForeignClients:Bool = True
 	'Const Default_LaunchReceivePerClient:Bool = True ' False
 	
 	Const Default_ClientMessagesAfterDisconnect:Bool = False ' True
@@ -356,6 +357,7 @@ Class NetworkEngine Extends NetworkSerial
 		
 		' Reset our multi-connection setting.
 		MultiConnection = Default_MultiConnection
+		AllowForeignClients = Default_AllowForeignClients
 		
 		' Set the number of active extra "receive operations".
 		'ExtraReceiveOperations = 0
@@ -481,7 +483,7 @@ Class NetworkEngine Extends NetworkSerial
 		Return
 	End
 	
-	Method Host:Bool(Port:Int, Async:Bool=False, Protocol:ProtocolType=SOCKET_TYPE_UDP, MultiConnection:Bool=Default_MultiConnection, Hostname:String="")
+	Method Host:Bool(Port:Int, Async:Bool=False, Protocol:ProtocolType=SOCKET_TYPE_UDP, MultiConnection:Bool=Default_MultiConnection, AllowForeignClients:Bool=Default_AllowForeignClients, Hostname:String="")
 		#If NETWORKING_SOCKET_BACKEND_WEBSOCKET
 			Return False
 		#Else
@@ -2594,6 +2596,7 @@ Class NetworkEngine Extends NetworkSerial
 						Input.Reset()
 						
 						' Write our raw SHA data:
+						
 						'For Local I:= (RawSHA.Length-1) To 0 Step -1
 						For Local I:= 0 Until RawSHA.Length
 							Input.WriteInt(RawSHA[I])
@@ -2721,10 +2724,10 @@ Class NetworkEngine Extends NetworkSerial
 							Case $7E ' 126
 								Len = P.ReadShort() ' +=
 							Case $7F ' 127
-								Len = P.ReadInt() ' +=
-								
 								' Since we're 32-bit only for now, skip the extra 32 bits.
-								P.ReadInt()
+								P.ReadInt() ' Len = ...
+								
+								Len = P.ReadInt() ' Len += ...
 						End Select
 					Endif
 					
@@ -2793,6 +2796,10 @@ Class NetworkEngine Extends NetworkSerial
 	
 	Method MultiConnection:Bool() Property
 		Return Self._MultiConnection
+	End
+	
+	Method AllowForeignClients:Bool() Property
+		Return Self._AllowForeignClients
 	End
 	
 	' This specifies if this network has at least one callback.
@@ -2876,11 +2883,8 @@ Class NetworkEngine Extends NetworkSerial
 	
 	' Experimental / undocumented. (Do not use this property)
 	Method AllowWebSockets:Bool() Property
-		Return TCPSocket
+		Return (TCPSocket And AllowForeignClients)
 	End
-	
-	' Properties (Protected):
-	Protected
 	
 	Method Remote:Client() Property
 		If (IsClient And Not Clients.IsEmpty()) Then
@@ -2889,6 +2893,9 @@ Class NetworkEngine Extends NetworkSerial
 		
 		Return Null
 	End
+	
+	' Properties (Protected):
+	Protected
 	
 	Method Terminating:Void(Input:Bool) Property
 		Self._Terminating = Input
@@ -2904,6 +2911,12 @@ Class NetworkEngine Extends NetworkSerial
 	
 	Method MultiConnection:Void(Input:Bool) Property
 		Self._MultiConnection = Input
+		
+		Return
+	End
+	
+	Method AllowForeignClients:Void(Input:Bool) Property
+		Self._AllowForeignClients = Input
 		
 		Return
 	End
@@ -2958,8 +2971,12 @@ Class NetworkEngine Extends NetworkSerial
 	Field _Terminating:Bool
 	Field _IsClient:Bool
 	
-	' This may be used to toggle accepting multiple clients.
+	' This may be used to toggle acceptance of multiple clients.
 	Field _MultiConnection:Bool = Default_MultiConnection
+	
+	' This may be used to toggle acceptance of custom protocol technologies.
+	' For example, web-based (Browser / HTML5) clients could use WebSocket framing underneath this protocol.
+	Field _AllowForeignClients:Bool
 	
 	' A container of packets allocated to the internal system.
 	Field SystemPackets:Stack<Packet>

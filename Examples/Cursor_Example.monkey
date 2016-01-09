@@ -170,7 +170,7 @@ Class Game Extends App Implements CoreNetworkListener, MetaNetworkListener, Clie
 		Endif
 		
 		If (KeyHit(KEY_F2) Or MouseHit(MOUSE_LEFT)) Then
-			Connect("127.0.0.1")
+			Connect("127.0.0.1") ' "localhost"
 			
 			' Switch to gameplay.
 			Return True
@@ -634,8 +634,6 @@ Class Player Abstract
 	
 	' Meta:
 	Field ID:Int = 0
-	
-	' Meta:
 	
 	' If we're the server, this will be the actual 'Client'.
 	' If we're a client, this will be a handle to the server.
