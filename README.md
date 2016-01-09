@@ -7,6 +7,9 @@ This was built as an easy to use API that allows you to serialize and deserializ
 
 **For an excellent example of how this module is used, and how you can abstract I/O from networking, view the ["cursor demo"](/Examples/Cursor_Example.monkey).** That demo follows several good practices for game networking. For basic message I/O, [this demo](/Examples/Basic_Send_Example.monkey) should help. And for "mega packet" (File) I/O, [this](/Examples/Network_File_Test.monkey) is a solid reference.
 
+### Installation
+The 'regal.networking' module does not have well defined dependencies in the 'regal' module structure. To install this module, please [install the "Regal Modules" project](https://github.com/Regal-Internet-Brothers/regal-modules#installation).
+
 ## Features:
 * **Protocol agnostic (TCP or UDP)**; as long as both ends use the same protocol, there should be no code changes. (Please use reliable messages where necessary, even when using TCP)
 
