@@ -135,35 +135,35 @@ Class Application Extends App Implements CoreNetworkListener, MetaNetworkListene
 		
 		Cls(127.5, Cos(Float(Millisecs() / 10)) * 255.0, 200.0)
 		
-		If (Not Network.IsClient) Then
-			Local UserCount:= Users.Count()
-			
-			If (UserCount > 0) Then
-				If (UserCount > PREVIEW_USER_COUNT) Then
-					DrawText("Users connected: " + UserCount, 8.0, 8.0)
-				Else
-					Local Names:String
+		Local UserCount:= Users.Count()
+		
+		If (UserCount > 0) Then
+			If (UserCount > PREVIEW_USER_COUNT) Then
+				DrawText("Users connected: " + UserCount, 8.0, 8.0)
+			Else
+				Local Names:String
+				
+				Local Users_Node:= Users.FirstNode()
+				
+				Local Iterations:= Min(PREVIEW_USER_COUNT, UserCount)
+				
+				For Local I:= 1 To Iterations
+					Local U:= Users_Node.Value()
 					
-					Local Users_Node:= Users.FirstNode()
+					Names += U.Name
 					
-					Local Iterations:= Min(PREVIEW_USER_COUNT, UserCount)
+					If (I < Iterations) Then
+						Names += ", "
+					Endif
 					
-					For Local I:= 1 To Iterations
-						Local U:= Users_Node.Value()
-						
-						Names += U.Name
-						
-						If (I < Iterations) Then
-							Names += ", "
-						Endif
-						
-						Users_Node = Users_Node.NextNode()
-					Next
-					
-					DrawText("Users connected: " + Names, 8.0, 8.0)
-				Endif
+					Users_Node = Users_Node.NextNode()
+				Next
+				
+				DrawText("Users connected: " + Names, 8.0, 8.0)
 			Endif
-			
+		Endif
+		
+		If (Not Network.IsClient) Then	
 			DrawText("Clients connected overall: " + Network.ClientCount, 8.0, 24.0)
 		Endif
 		
@@ -218,7 +218,7 @@ Class Application Extends App Implements CoreNetworkListener, MetaNetworkListene
 		Elseif (KeyHit(KEY_0)) Then
 			Connect("127.0.0.1") ' "localhost"
 			
-			ChatOffset = 16.0
+			ChatOffset = 48.0
 			
 			Return True
 		Endif
@@ -267,6 +267,7 @@ Class Application Extends App Implements CoreNetworkListener, MetaNetworkListene
 							LocalInfo = New User(UserInput, GetNextUserID())
 							
 							BringClientUpToSpeed(Null)
+							'NotifyAboutUser(LocalInfo, Null, False, True)
 							
 							UsernameInputComplete = True
 						Endif
@@ -532,8 +533,6 @@ Class Application Extends App Implements CoreNetworkListener, MetaNetworkListene
 		Next
 		
 		If (LocalInfo <> Null) Then
-			DebugStop()
-			
 			' Tell 'Incoming' about us.
 			NotifyAboutUser(LocalInfo, Incoming, False, True)
 		Endif
@@ -557,7 +556,11 @@ Class Application Extends App Implements CoreNetworkListener, MetaNetworkListene
 						Local ID:= Message.ReadShort()
 						
 						If (Not IsMyInfo And ID = User.ID_RESERVED) Then
-							AcceptUser(Message.ReadLine(), Origin)
+							If (GetUser(ID) = Null) Then
+								AcceptUser(Message.ReadLine(), Origin)
+							Else
+								Return
+							Endif
 						Else
 							' Nothing so far.
 						Endif
@@ -575,10 +578,15 @@ Class Application Extends App Implements CoreNetworkListener, MetaNetworkListene
 					Local ID:= Message.ReadShort()
 					Local Name:= Message.ReadLine()
 					
+					Print("NAME: " + Name)
+					Print("IsServer: " + Int(IsServerInfo))
+					Print("IsMyInfo: " + Int(IsMyInfo))
+					Print("ID: " + ID)
+					
 					' Check if it's our information:
 					If (IsMyInfo And Not IsServerInfo) Then
 						If (Not HasLocalInfo) Then
-							LocalInfo = New User(Name, ID, Origin)
+							LocalInfo = New User(Name, ID)
 							
 							DisplayLine("User information established at: " + Origin.Address)
 							DisplayLine("Obtained username: " + Name)
@@ -664,7 +672,7 @@ Class Application Extends App Implements CoreNetworkListener, MetaNetworkListene
 	End
 	
 	Method OnDisconnected:Void(Network:NetworkEngine)
-		Print("Disconnected.")
+		DisplayLine("Disconnected from server.")
 		
 		Return
 	End
