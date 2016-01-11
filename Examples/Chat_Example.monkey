@@ -266,8 +266,8 @@ Class Application Extends App Implements CoreNetworkListener, MetaNetworkListene
 						Else
 							LocalInfo = New User(UserInput, GetNextUserID())
 							
-							BringClientUpToSpeed(Null)
-							'NotifyAboutUser(LocalInfo, Null, False, True)
+							'BringClientUpToSpeed(Null)
+							NotifyAboutUser(LocalInfo, Null, False, True)
 							
 							UsernameInputComplete = True
 						Endif
