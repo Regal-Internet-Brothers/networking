@@ -62,6 +62,10 @@ Class PacketPool<PacketType> Abstract
 	
 	' The return-value of this command specifies if 'P' was accepted.
 	Method Release:Bool(P:PacketType)
+		If (P = Null) Then
+			Return False
+		Endif
+		
 		If (P.Release()) Then
 			P.Reset()
 			
