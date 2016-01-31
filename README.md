@@ -33,9 +33,9 @@ This module acts as a successor to the ['regalnet'](https://bitbucket.org/Immuta
 Functionality provided in this repository was *(Until recently)* very experimental. Though this is now an officially supported module, it is still in relatively early development, and may still see some API changes. That being said, this should be stable enough for most use-cases. Use this module at your own risk. Long-term API compatibility may be assumed, but some implementation details may change. Feel free to stick with older versions if newer commits are unstable. I'm still unsure if I'm going to need multiple branches or not. In the event I do, it will likely be named "experimental", and cover new features.
 
 ### Notes:
-*UDP-reliability has been considered working for a long time, though advanced stability testing has yet to be done.*
-
-This module uses the ['brl.socket'](https://github.com/blitz-research/monkey/blob/develop/modules/brl/socket.monkey) module as a backend. Portability currently depends on this module.
+* *UDP-reliability has been considered working for a long time, though advanced stability testing has yet to be done.*
+* This module uses the ['brl.socket'](https://github.com/blitz-research/monkey/blob/develop/modules/brl/socket.monkey) module as a backend. Portability currently depends on this module.
+* **For a lower-level networking library, check out the experimental ['transport' module](https://github.com/Regal-Internet-Brothers/transport).**
 
 ### TODO:
 * Fully integrate WebSocket support. (Work in progress; highly experimental)
