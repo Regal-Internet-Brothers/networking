@@ -327,7 +327,7 @@ When you intend to end the network-session, please call [[Close]] or [[CloseAsyn
 
 * The @Address argument is used to connect to a remote [[NetworkEngine]].
 * The @Async argument specifies if connection should be done asynchronously. (May be required on some targets)
-* The @[[SocketType|Protocol]] argument describes the desired transport protocol.
+* The [[SocketType|@Protocol]] argument describes the desired transport protocol.
 
 See also: [[Host]], [[Close]], [[CloseAsync]]
 
@@ -692,7 +692,7 @@ See also: [[AddPendingMegaPacket]], [[GetPendingMegaPacket]]
 
 # Method RemovePendingMegaPacket:Void(ID:PacketID)
 
-<p>This is used to remove one of our pending [[MegaPacket]] objects using its @[[MegaPacket.ID]].</p>
+<p>This is used to remove one of our pending [[MegaPacket]] objects using its [[MegaPacket.ID]].</p>
 <p>For more information, view the [[RemovePendingMegaPacket|main overload]], and the [[AddPendingMegaPacket]] command.</p>
 
 <p><b>This method is protected.</b></p>
@@ -701,7 +701,7 @@ See also: [[AddPendingMegaPacket]], [[GetPendingMegaPacket]]
 
 # Method GetPendingMegaPacket:MegaPacket(ID:PacketID)
 
-<p>This retrieves the [[MegaPacket]] object with @[[MegaPacket.ID]], previously added with [[AddPendingMegaPacket]].</p>
+<p>This retrieves the [[MegaPacket]] object with [[MegaPacket.ID]], previously added with [[AddPendingMegaPacket]].</p>
 <p>If a [[MegaPacket]] couldn't be found, this will return [[Null]].</p>
 <p><b>This method is protected.</b></p>
 
@@ -709,14 +709,14 @@ See also: [[AddPendingMegaPacket]], [[RemovePendingMegaPacket]]
 
 # Method HasPendingMegaPacket:Bool(ID:PacketID)
 
-<p>This returns [[True]] if a [[MegaPacket]] with the @[[MegaPacket.ID]] specified was found.</p>
+<p>This returns [[True]] if a [[MegaPacket]] with the [[MegaPacket.ID]] specified was found.</p>
 <p><b>This method is protected.</b></p>
 
 See also: [[AddPendingMegaPacket]], [[RemovePendingMegaPacket]], [[GetPendingMegaPacket]]
 
 # Method AbortMegaPacket:Void(C:Client, ID:PacketID, Reason:PacketExtResponse=MEGA_PACKET_RESPONSE_ABORT)
 
-<p>This sends a rejection message regarding a remote [[MegaPacket]] with @[[MegaPacket.ID]], to @C with @Reason.</p>
+<p>This sends a rejection message regarding a remote [[MegaPacket]] with [[MegaPacket.ID]], to @C with @Reason.</p>
 <p>In addition to rejecting the [[MegaPacket]], this will call [[Client.RemoveWaitingMegaPacket]] on @C.</p>
 <p><b>This method is protected.</b></p>
 
