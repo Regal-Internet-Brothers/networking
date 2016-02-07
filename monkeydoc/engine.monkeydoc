@@ -1367,6 +1367,12 @@ See also: [[Connection]]
 
 See also: [[ProtocolToString]]
 
+# Method Port:Int() Property
+
+<p>This represents the port previously used to make the network [[Connection|connection]].</p>
+<p>This property may produce invalid results while establishing an underlying connection.</p>
+<p>The value of this property may be withheld if necessary. If no value is available, [[PORT_AUTOMATIC]] will be returned.</p>
+
 # Method Bound:Bool() Property
 
 <p>
@@ -1536,7 +1542,7 @@ For more information on reliable packets, and how they work, see [[AllocateRelia
 
 <p>
 This acts as the primary connection-socket.
-This is what all network operations are done with when using UDP; 
+This is what all network operations are done with when using UDP, 
 and what client acceptance is done with when using TCP.
 </p>
 
