@@ -169,7 +169,7 @@ Class NetworkEngine Extends NetworkSerial
 	
 	Const Default_ClientMessagesAfterDisconnect:Bool = False ' True
 	
-	' Functions:
+	' Functions (Public):
 	Function AddressesEqual:Bool(X:NetworkAddress, Y:NetworkAddress)
 		If (X = Y) Then
 			Return True
@@ -192,6 +192,21 @@ Class NetworkEngine Extends NetworkSerial
 		
 		Return "Unknown"
 	End
+	
+	' Functions (Private):
+	Private
+	
+	'#If Not NETWORKING_SOCKET_NATIVE_PORT
+	
+	' This function should only be called by internal code.
+	' This is not guaranteed to exist, but is required under some environments.
+	Function __GenerateRandomPort:Int()
+		Return Rnd(49152, 65535) ' 1024
+	End
+	
+	'#End
+	
+	Public
 	
 	' Constructor(s) (Public):
 	Method New(PacketSize:Int=Default_PacketSize, PacketPoolSize:Int=Default_PacketPoolSize, FixByteOrder:Bool=Default_FixByteOrder, PingFrequency:Duration=Default_PingFrequency, MaxPing:NetworkPing=Default_MaxPing, MaxChunksPerMegaPacket:Int=Default_MaxChunksPerMegaPacket, PacketReleaseTime:Duration=Default_PacketReleaseTime, PacketResendTime:Duration=Default_PacketResendTime, MegaPacketTimeout:Duration=Default_MegaPacketTimeout) ' LaunchReceivePerClient:Bool=Default_LaunchReceivePerClient
@@ -359,6 +374,11 @@ Class NetworkEngine Extends NetworkSerial
 		MultiConnection = Default_MultiConnection
 		AllowForeignClients = Default_AllowForeignClients
 		
+		#If Not NETWORKING_SOCKET_NATIVE_PORT
+			' Reset the internal port.
+			Port = PORT_AUTOMATIC
+		#End
+		
 		' Set the number of active extra "receive operations".
 		'ExtraReceiveOperations = 0
 		
@@ -487,6 +507,12 @@ Class NetworkEngine Extends NetworkSerial
 		#If NETWORKING_SOCKET_BACKEND_WEBSOCKET
 			Return False
 		#Else
+			#If Not NETWORKING_SOCKET_NATIVE_PORT
+				If (Port = PORT_AUTOMATIC) Then
+					Port = __GenerateRandomPort()
+				Endif
+			#End
+			
 			Init(Protocol, False)
 			
 			Self.MultiConnection = MultiConnection
@@ -497,12 +523,22 @@ Class NetworkEngine Extends NetworkSerial
 				Return False
 			Endif
 			
+			#If Not NETWORKING_SOCKET_NATIVE_PORT
+				Self.Port = Port
+			#End
+			
 			' Return the default response.
 			Return True
 		#End
 	End
 	
 	Method Connect:Bool(Address:NetworkAddress, Async:Bool=False, Protocol:ProtocolType=SOCKET_TYPE_UDP)
+		#If Not NETWORKING_SOCKET_NATIVE_PORT
+			If (Address.Port = PORT_AUTOMATIC) Then
+				Address = New NetworkAddress(Address.Host, __GenerateRandomPort())
+			Endif
+		#End
+		
 		Init(Protocol, True)
 		
 		Clients.AddFirst(New Client(Address, Connection, (Protocol = SOCKET_TYPE_UDP)))
@@ -520,6 +556,10 @@ Class NetworkEngine Extends NetworkSerial
 			
 			Return False
 		Endif
+		
+		#If Not NETWORKING_SOCKET_NATIVE_PORT
+			Self.Port = Address.Port
+		#End
 		
 		' Return the default response.
 		Return True
@@ -1202,9 +1242,12 @@ Class NetworkEngine Extends NetworkSerial
 		End
 		
 		Method OnConnectComplete:Void(Connected:Bool, Source:Socket)
+			' Call the main implementation.
 			OnBindComplete(Connected, Source)
 			
+			' Check if we connected:
 			If (Connected) Then
+				' Send an initialization message.
 				SendConnectMessage()
 			Endif
 			
@@ -2764,6 +2807,30 @@ Class NetworkEngine Extends NetworkSerial
 		Return Self._SocketType
 	End
 	
+	Method Port:Int() Property
+		#If NETWORKING_SOCKET_NATIVE_PORT
+			#If NETWORKING_SOCKET_BACKEND_BRL
+				If (Connection = Null) Then
+					Return PORT_AUTOMATIC
+				Endif
+				
+				Local Address:NetworkAddress
+				
+				If (Not IsClient) Then
+					Address = Connection.LocalAddress
+				Else
+					Address = Connection.RemoteAddress
+				Endif
+				
+				Return Address.Port
+			#Else
+				Return PORT_AUTOMATIC
+			#End
+		#Else
+			Return Self._Port
+		#End
+	End
+	
 	Method Bound:Bool() Property
 		If (Closed) Then
 			Return False
@@ -2929,6 +2996,19 @@ Class NetworkEngine Extends NetworkSerial
 	
 	Public
 	
+	' Properties (Private):
+	Private
+	
+	#If Not NETWORKING_SOCKET_NATIVE_PORT
+		Method Port:Void(Input:Int) Property
+			Self._Port = Input
+			
+			Return
+		End
+	#End
+	
+	Public
+	
 	' Fields (Public):
 	
 	' The amount of time it takes to forget a packet ID.
@@ -3034,6 +3114,10 @@ Class NetworkEngine Extends NetworkSerial
 	' A pool of 'MegaPackets'; used for multi-part packets.
 	' Like 'PacketGenerator', this is private because it has an appropriate API layer.
 	Field MegaPacketGenerator:MegaPacketPool
+	
+	#If Not NETWORKING_SOCKET_NATIVE_PORT
+		Field _Port:Int = PORT_AUTOMATIC
+	#End
 	
 	Public
 End

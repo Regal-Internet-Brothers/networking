@@ -4,7 +4,7 @@ Public
 
 ' Preprocessor related:
 #If TARGET = "stdcpp"
-	#USE_MOJOWRAPPER = True
+	#USE_MOJOEMULATOR = True
 #End
 
 ' If enabled, this could cause timeouts.
@@ -22,7 +22,7 @@ Import regal.ioutil.repeater
 	Import regal.hash
 #End
 
-#If Not USE_MOJOWRAPPER
+#If Not USE_MOJOEMULATOR
 	Import mojo
 #Else
 	Import regal.mojoemulator

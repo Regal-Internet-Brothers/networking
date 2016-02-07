@@ -11,6 +11,10 @@ Public
 	#End
 #End
 
+#If NETWORKING_SOCKET_BACKEND_BRL
+	#NETWORKING_SOCKET_NATIVE_PORT = True
+#End
+
 ' Imports (Public):
 
 ' Internal:
